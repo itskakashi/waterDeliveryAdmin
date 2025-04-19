@@ -238,6 +238,7 @@ class FireBaseViewModel(private val  repository: FireBaseRepository) : ViewModel
         fun getAllUsers(onSuccess: (List<User>) -> Unit, onFailure: (Throwable) -> Unit) {
             viewModelScope.launch {
                 repository.getAllUsers().onSuccess { users ->
+                    _allUsers.value = users
                     onSuccess(users)
                 }.onFailure { exception ->
                     onFailure(exception)
@@ -586,30 +587,36 @@ class FireBaseViewModel(private val  repository: FireBaseRepository) : ViewModel
             }
         }
 
-    // Admin Login Functions
-    fun loginAdmin(email: String, passwordHash: String,onSuccess: (admin: AdminUser) -> Unit,onFailure: (Throwable) -> Unit ) {
+//     Admin Login Functions
+    fun loginAdmin(
+        email: String,
+        passwordHash: String,
+        onSuccess: () -> Unit,
+        onFailure: () -> Unit
+    ) {
         viewModelScope.launch {
-            _isLoadingAdmin.value = true
-            _loginError.value = null // Clear any previous errors
-            repository.getAdmin()
-                .onSuccess { admin ->
-                    Log.d("admin", admin.toString())
-                    if (admin.email == email && admin.passwordHash == passwordHash) {
-                        _adminUser.value = admin
-                        _isAdminLoggedIn.value = true
-                        onSuccess(admin)
-                    } else {
-                        _loginError.value = "Invalid email or password."
-                    }
+             signIn(email,passwordHash, {
+                 user->
+                 getUser(user,{
 
-                }
-                .onFailure { error ->
-                    Log.d(" error cause", error.cause.toString())
-                    Log.d("error", error.message.toString())
-                   onFailure(error)
-                    _loginError.value = "Error: ${error.message}"
-                }
-            _isLoadingAdmin.value = false
+                     if( it.isStaff!=null && it.isStaff==true){
+                         Log.d("LoginScreen", "Login Successful  ")
+                         onSuccess( )
+                     }
+                     else{
+                         Log.d("LoginScreen", "Login unSuccessful1 ${it.isStaff}")
+                         onFailure()
+                     }
+                 },{
+                     Log.d("LoginScreen", "Login unSuccessful2 ")
+                     onFailure()
+
+                 })
+
+             }, {
+
+                 onFailure()
+             })
         }
     }
 

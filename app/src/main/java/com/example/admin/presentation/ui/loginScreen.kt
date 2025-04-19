@@ -1,5 +1,6 @@
 package com.example.admin.presentation.ui
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -48,28 +49,11 @@ fun LoginScreen(navController: NavController, ) {
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var rememberMeChecked by remember { mutableStateOf(false) }
-    val loginError by viewModel.loginError.collectAsState()
-    val isAdminLoggedIn by viewModel.isAdminLoggedIn.collectAsState()
+
+
     val isLoading by viewModel.isLoading.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-
-    // If the admin is logged in, navigate to the dashboard
-    LaunchedEffect(isAdminLoggedIn) {
-        if (isAdminLoggedIn) {
-//            navController.navigate("adminDashboard") {
-//                popUpTo("login") { inclusive = true } // Clear the back stack
-//            }
-        }
-    }
-    // Show error message in snackbar
-    LaunchedEffect(loginError) {
-        if (loginError != null) {
-            coroutineScope.launch {
-                snackbarHostState.showSnackbar(loginError!!)
-            }
-        }
-    }
 
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { innerPadding ->
         Column(
@@ -178,13 +162,14 @@ fun LoginScreen(navController: NavController, ) {
             val context= LocalContext.current
             Button(
                 onClick = {
-                    viewModel.loginAdmin(email, password,
-                        onSuccess = {
-                            Toast.makeText(context, "Login Successful ${it.email}", Toast.LENGTH_SHORT).show()
+                    viewModel.loginAdmin(email, password, onSuccess = {
 
+                        Toast.makeText(context,"Login Successful",Toast.LENGTH_SHORT).show()
+                        Log.d("LoginScreen", "Login Successful ")
+                        navController.navigate(route.dashBoardScreen)
                     }, onFailure = {
-                        Toast.makeText(context, "Login Failed", Toast.LENGTH_SHORT).show()
-
+                        Toast.makeText(context,"Login Failed ",Toast.LENGTH_SHORT).show()
+                        Log.d("LoginScreen", "Login Failed ")
                     })
                 },
                 modifier = Modifier.fillMaxWidth(),

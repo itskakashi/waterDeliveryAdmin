@@ -32,8 +32,8 @@ data class User(
     var isStaff: Boolean? = false, // Default to false for customers
     var isCompany: Boolean? = null,
     var serviceName: String? = null,
-    var coldWaterPrice: Double? = null,
-    var regularWaterPrice: Double? = null,
+    var coldWaterPrice: Double? = 35.0,
+    var regularWaterPrice: Double? = 30.0,
     var isOpen: Boolean? = null,
     var depositMoney: Double? = null,
     var canesTaken: Int? = null,

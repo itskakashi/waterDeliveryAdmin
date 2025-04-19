@@ -1,0 +1,23 @@
+package com.example.admin.presentation.ui
+
+
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Serializer
+
+sealed class route(){
+
+    @Serializable
+    data object loginScreen: route()
+
+
+    @Serializable
+    data object dashBoardScreen: route()
+
+    @Serializable
+    data object orderPlaceScreen: route()
+    @Serializable
+    data object customerScreen: route()
+
+}
+
+
