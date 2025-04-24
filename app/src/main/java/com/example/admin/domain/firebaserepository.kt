@@ -16,6 +16,8 @@ import androidx.annotation.RequiresApi
 import com.example.admin.data.FireStoreDatabase.managers.AdminManager
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentReference
+import java.time.LocalDate
 import java.util.Date
 
 
@@ -76,6 +78,13 @@ class FireBaseRepository(
      suspend fun updateOrderStatus(userId: String, orderId: String, newStatus: String): Result<Unit> {
          return OrderManager.updateOrderStatus(userId, orderId,newStatus)
      }
+      suspend fun updateOrderStatusUsingRef(userId: DocumentReference, orderId: String, newStatus: String): Result<Unit> {
+          return OrderManager.updateOrderStatusUsingRef(userId, orderId,newStatus)
+      }
+
+      suspend fun updateAmount(userRef: DocumentReference, amount: Double, isAddition: Boolean): Result<Unit> {
+          return UserManager.updateAmount(userRef, amount, isAddition)
+      }
      suspend fun updateOrder(userId: String, order: Order): Result<Unit> {
          return OrderManager.updateOrder(userId,order)
      }
@@ -92,6 +101,14 @@ class FireBaseRepository(
           return OrderManager.getOrdersByMonth(userId, firstDayOfMonth, lastDayOfMonth)
       }
 
+
+
+      suspend fun getAllUsersTodayOrders(): Result<List<Order>> {
+          return OrderManager.getAllUsersTodayOrders()
+      }
+      suspend fun getAllUsersOrdersByCustomDate(date: LocalDate): Result<List<Order>> {
+          return OrderManager.getOrdersByCustomDate(date)
+      }
 
 
      // Bill manager

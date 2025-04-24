@@ -3,6 +3,7 @@
 
 
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -46,8 +47,6 @@ class UserManager {
                 val user = document.toObject(User::class.java)
                 Result.success(user!!)
             } else {
-
-
                 Result.failure(Exception("User not found"))
             }
         } catch (e: Exception) {
@@ -138,4 +137,19 @@ class UserManager {
             Result.failure(e)
         }
     }
+    suspend fun updateAmount(userRef: DocumentReference, amount: Double, isAddition: Boolean): Result<Unit> {
+        return try {
+            val updateData = if (isAddition) {
+                mapOf("amount" to FieldValue.increment(amount))
+            } else {
+                mapOf("amount" to FieldValue.increment(-amount))
+            }
+            userRef.update(updateData).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+
 }

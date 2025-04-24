@@ -166,6 +166,7 @@ fun LoginScreen(navController: NavController, ) {
 
                         Toast.makeText(context,"Login Successful",Toast.LENGTH_SHORT).show()
                         Log.d("LoginScreen", "Login Successful ")
+                        if(!viewModel.isLoading.value)
                         navController.navigate(route.dashBoardScreen)
                     }, onFailure = {
                         Toast.makeText(context,"Login Failed ",Toast.LENGTH_SHORT).show()

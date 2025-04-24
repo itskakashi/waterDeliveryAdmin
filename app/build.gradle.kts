@@ -87,4 +87,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
 
     implementation(libs.androidx.core.splashscreen.v100alpha02)
+
+
+    implementation("com.google.android.material:material:1.12.0")
+    implementation("com.google.android.libraries.places:places:4.2.0")
 }

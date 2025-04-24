@@ -18,7 +18,7 @@ data class User(
     var email: String? = null,
     var userName: String? = null,
     var contactInfo: String? = null,
-    var amount: Double? = null,
+    var amount: Double? = 0.0,
     var status: String? = null,
     var profilePictureUrl: String? = null,
     var lastOrderDate: Timestamp? = null,
@@ -39,7 +39,7 @@ data class User(
     var canesTaken: Int? = null,
     var canesReturned: Int? = null,
     var orders: List<DocumentReference> = emptyList(),
-    var userId: String? = null
+    var userId: String? = null,
 )
 
 
@@ -91,6 +91,7 @@ data class Bill(
 
 
 data class Order(
+    var userName: String? = "",
     var orderNumber: String? = null,
     var userID: DocumentReference? = null,
     var deliveryAddress: String? = null,

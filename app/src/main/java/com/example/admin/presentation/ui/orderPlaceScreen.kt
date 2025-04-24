@@ -7,6 +7,7 @@ import User
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
@@ -78,6 +79,7 @@ import androidx.navigation.NavController
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.runtime.traceEventEnd
+import androidx.compose.ui.platform.LocalContext
 import androidx.room.util.TableInfo
 import com.example.admin.R
 import com.example.admin.presentation.FireBaseViewModel
@@ -96,12 +98,13 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.Date
 import kotlin.text.contains
+import kotlin.time.Duration
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NewOrderScreen() {
-    val viewModel = koinViewModel<FireBaseViewModel>()
+fun NewOrderScreen(navController: NavController,viewModel: FireBaseViewModel) {
+
 
     var selectedJar by remember { mutableIntStateOf(0) }
     var Quantity by remember { mutableIntStateOf(1) }
@@ -148,7 +151,7 @@ fun NewOrderScreen() {
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
-        bottomBar = { BottomNavigationBar() }
+        bottomBar = { BottomNavigationBar(navController =navController ) }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -171,7 +174,7 @@ fun NewOrderScreen() {
             Spacer(modifier = Modifier.height(24.dp)) // Increased spacing
             ReturnCanCounter(onValueChange = { returnCanCount = it })
             Spacer(modifier = Modifier.height(24.dp)) // Increased spacing
-            DatePickerField(onDateSelected = { selectedDate = it })
+            DatePickerFieldd(onDateSelected = { selectedDate = it })
             Spacer(modifier = Modifier.height(24.dp)) // Increased spacing
             MarkAsDeliveredCheckbox(
                 isChecked = isMarkedAsDelivered,
@@ -541,7 +544,7 @@ fun ReturnCanCounter(onValueChange: (Int) -> Unit) {
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DatePickerField(onDateSelected: (Date) -> Unit) {
+fun DatePickerFieldd(onDateSelected: (Date) -> Unit) {
     var showDatePicker by remember { mutableStateOf(false) }
     var selectedDateText by remember { mutableStateOf("") }
 
@@ -733,12 +736,16 @@ fun CreateOrderButton(
     viewModel: FireBaseViewModel,
 //    navController: NavController
 ) {
+    val context= LocalContext.current
     Button(
         onClick = {
-            if (selectedCustomer != null && selectedDate != null && Quantity>0) {
+
+            if (selectedCustomer != null && selectedDate != null && Quantity>0 ) {
                 val db = Firebase.firestore
                 val userRef = db.collection("users").document(selectedCustomer.userId!!)
+
                 val order = Order(
+                    userName = selectedCustomer.name,
                     userID = userRef,
                     deliveryAddress = address,
                     waterType = if (selectedJar == 0) "Normal" else "Cold",
@@ -749,33 +756,46 @@ fun CreateOrderButton(
                     totalAmount = (Quantity * (if (selectedJar == 0) 30 else 35)).toDouble(),
                     deliveryStatus = if(isMarkedAsDelivered)"Completed" else "Pending",
                     canesReturning = returnCanCount,
-
                     )
                 viewModel.createOrder(selectedCustomer.userId!!, order, onSuccess = {
+                    Toast.makeText(context,"your order is succesfull $it", Toast.LENGTH_SHORT).show()
                     Log.d("order", "order created successful ${it.toString()}")
-//
                     val db: FirebaseFirestore = Firebase.firestore
 
-                    val testBill = Bill(
-                        billId = "testBill_${selectedCustomer.userId ?:""}_${System.currentTimeMillis()}",
-                        userId = db.collection("users").document(selectedCustomer.userId ?:""),
-                        amount = Quantity.toDouble() *(if (selectedJar == 0) 30 else 35 ).toDouble(),
-                        totalJars = Quantity,
-                        billDate = Timestamp(java.util.Date()),
-                        paymentStatus = if (isMarkedAsPaid == true) "Paid" else "UnPaid",
-                        isPaid = isMarkedAsPaid,
-                        orderId = db.collection("orders").document(),
 
-                        )
+                    if(isMarkedAsDelivered){
+                        val testBill = Bill(
+                            userId = db.collection("users").document(selectedCustomer.userId ?:""),
+                            amount = Quantity.toDouble() *(if (selectedJar == 0) 30 else 35 ).toDouble(),
+                            totalJars = Quantity,
+                            billDate = Timestamp(java.util.Date()),
+                            paymentStatus = if (isMarkedAsPaid == true) "Paid" else "UnPaid",
+                            isPaid = isMarkedAsPaid,
+                            orderId = db.collection("orders").document(),
 
-                    viewModel.createBill(testBill,
-                        onSuccess = {
-                            Log.d("billGenerated"," bill is created successfully ${it.toString()}")
-                        },
-                        onFailure = { e ->
-                            Log.d("billGeneratedFailed"," bill is created Unsuccessfully ${it.toString()}")
+                            )
 
-                        })
+                        viewModel.createBill(testBill,
+                            onSuccess = {
+                                Log.d("billGenerated"," bill is created successfully ${it.toString()}")
+
+                            },
+                            onFailure = { e ->
+                                Log.d("billGeneratedFailed"," bill is created Unsuccessfully ${it.toString()}")
+
+                            })
+                        if(!isMarkedAsPaid){
+                            viewModel.updateUser(selectedCustomer.copy(amount = selectedCustomer.amount?.plus(
+                                (Quantity.toDouble() *(if (selectedJar == 0) 30 else 35 ).toDouble())
+                            )),{
+                                Log.d("UpdatedSuccessfully"," bill amount is successfully updated ${it.toString()}")
+                            },{
+                                Log.d("UpdatedUNSuccessfully"," bill amount is UNsuccessfully updated ${it.message.toString()}")
+                            })
+                        }
+
+                    }
+
 
 
 

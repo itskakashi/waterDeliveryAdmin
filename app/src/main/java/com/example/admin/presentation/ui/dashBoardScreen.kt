@@ -1,3 +1,4 @@
+import android.util.Log
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -23,9 +24,10 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,41 +36,68 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.example.admin.R
+
+import com.example.admin.presentation.FireBaseViewModel
 import com.example.admin.presentation.ui.MyColor
+import com.example.admin.presentation.ui.route
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+var selectedItem by mutableIntStateOf(0)
 
 @Composable
-fun DashboardScreen() {
+fun DashboardScreen(navController: NavController, viewModel: FireBaseViewModel) {
+    val admin by viewModel.provider.collectAsState()
+    Log.d("admin", "${admin}")
+    LaunchedEffect(Unit) {
+        viewModel.updateCurrentAdmin(viewModel.userid.value)
+    }
+
     Scaffold(
-        bottomBar = { BottomNavigationBar() }
+        bottomBar = { BottomNavigationBar(navController) }
     ) { innerPadding ->
         Column(
             modifier = Modifier
-                .fillMaxSize().background(MyColor.background)
+                .fillMaxSize()
+                .background(MyColor.background)
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
-            GreetingSection()
+            GreetingSection(admin)
             Spacer(modifier = Modifier.height(24.dp))
             DashboardGrid()
             Spacer(modifier = Modifier.height(60.dp))
-            ButtonGrid()
+            ButtonGrid(navController)
         }
     }
+
+    Log.d("viewmdeladmin", "${viewModel.provider.value}")
+    Log.d("adminDashboard", "${admin}")
 }
 
 @Composable
-fun GreetingSection() {
+fun GreetingSection(admin: User?) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(text = "Good Morning, John!", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(text = SimpleDateFormat("EEEE, MMMM dd", Locale.getDefault()).format(Date()), fontSize = 14.sp, color = Color.Gray)
+        Text(
+            text = "Good Morning,",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "${ admin?.name }",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = SimpleDateFormat("EEEE, MMMM dd", Locale.getDefault()).format(Date()),
+            fontSize = 14.sp,
+            color = Color.Gray
+        )
     }
 }
 
@@ -83,10 +112,34 @@ data class InfoCard(
 @Composable
 fun DashboardGrid() {
     val infoCards = listOf(
-        InfoCard("Today Orders", "12", "+15%", R.drawable.shoppingcart, Color(0xFF6200EE)), // Replace with your icons
-        InfoCard("Total Revenue", "\$1,248", "+8%", R.drawable.wallet, Color(0xFF00897B)), // Replace with your icons
-        InfoCard("Active Orders", "5", "-2%", R.drawable.deliverybus, Color(0xFFE64A19)), // Replace with your icons
-        InfoCard("Pending Orders", "5", "-2%", R.drawable.deliverybus, Color(0xFF1976D2)), // Replace with your icons
+        InfoCard(
+            "Today Orders",
+            "12",
+            "+15%",
+            R.drawable.shoppingcart,
+            Color(0xFF6200EE)
+        ), // Replace with your icons
+        InfoCard(
+            "Total Revenue",
+            "\$1,248",
+            "+8%",
+            R.drawable.wallet,
+            Color(0xFF00897B)
+        ), // Replace with your icons
+        InfoCard(
+            "Active Orders",
+            "5",
+            "-2%",
+            R.drawable.deliverybus,
+            Color(0xFFE64A19)
+        ), // Replace with your icons
+        InfoCard(
+            "Pending Orders",
+            "5",
+            "-2%",
+            R.drawable.deliverybus,
+            Color(0xFF1976D2)
+        ), // Replace with your icons
     )
 
     LazyVerticalGrid(
@@ -118,7 +171,7 @@ fun InfoCardView(card: InfoCard) {
             Image(
                 painter = painterResource(id = card.iconResId), // Use painterResource
                 contentDescription = null, // Add a proper content description if needed
-                colorFilter=ColorFilter.tint(card.color),
+                colorFilter = ColorFilter.tint(card.color),
                 modifier = Modifier.size(32.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
@@ -137,7 +190,7 @@ data class ButtonInfo(
 )
 
 @Composable
-fun ButtonGrid() {
+fun ButtonGrid(navController: NavController) {
     val buttonInfos = listOf(
         ButtonInfo("New Order", R.drawable.shoppingcart), // Replace with your icons
         ButtonInfo("Add Payment", R.drawable.payment), // Replace with your icons
@@ -153,17 +206,31 @@ fun ButtonGrid() {
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        items(buttonInfos ) { buttonInfo ->
-            ButtonView(buttonInfo = buttonInfo)
-
+        items(buttonInfos) { buttonInfo ->
+            ButtonView(buttonInfo = buttonInfo, navController = navController)
         }
     }
 }
 
 @Composable
-fun ButtonView(buttonInfo: ButtonInfo) {
+fun ButtonView(buttonInfo: ButtonInfo, navController: NavController) {
     Button(
-        onClick = { /* Handle button click */ },
+        onClick = {
+            if (buttonInfo.title == "New Order") {
+                navController.navigate(route.orderPlaceScreen)
+            }
+            if (buttonInfo.title == "Add Payment") {
+                navController.navigate(route.paymentScreen)
+            }
+            if (buttonInfo.title == "Customer List") {
+                navController.navigate(route.customerScreen)
+                selectedItem = 2
+            }
+            if (buttonInfo.title == "Today's Orders") {
+                navController.navigate(route.orderScreen)
+                selectedItem = 1
+            }
+        },
         modifier = Modifier
             .fillMaxWidth()
             .height(80.dp),
@@ -177,7 +244,6 @@ fun ButtonView(buttonInfo: ButtonInfo) {
                 painter = painterResource(id = buttonInfo.iconResId), // Use painterResource
                 contentDescription = null, // Add a proper content description if needed
                 modifier = Modifier.size(32.dp),
-//                colorFilter = ColorFilter.tint(Color.Black)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = buttonInfo.title, fontSize = 14.sp, color = Color.Black)
@@ -191,42 +257,60 @@ data class BottomNavigationItem(
 )
 
 @Composable
-fun BottomNavigationBar() {
-    var selectedItem by remember { mutableIntStateOf(0) }
+fun BottomNavigationBar(navController: NavController) {
     val items = listOf(
         BottomNavigationItem("Home", R.drawable.home), // Replace with your icons
-        BottomNavigationItem("Orders", R.drawable.order), // Replace with your icons
+        BottomNavigationItem("Orders", R.drawable.order),
+        BottomNavigationItem("Customers", R.drawable.custmerlist),// Replace with your icons
         BottomNavigationItem("Payments", R.drawable.payment), // Replace with your icons
-        BottomNavigationItem("Customers", R.drawable.custmerlist), // Replace with your icons
         BottomNavigationItem("Settings", R.drawable.setting),// Replace with your icons
     )
 
     NavigationBar(modifier = Modifier.fillMaxWidth(), containerColor = Color.White) {
         items.forEachIndexed { index, item ->
             NavigationBarItem(
-
-                icon = { Image(painter = painterResource(id = item.iconResId),contentDescription = item.title,
-                 modifier=Modifier.size(24.dp),
-                    colorFilter = ColorFilter.tint(
-                        if (index == selectedItem) Color(0xFF007AFF) else Color(0xFF666666)
+                icon = {
+                    Image(
+                        painter = painterResource(id = item.iconResId),
+                        contentDescription = item.title,
+                        modifier = Modifier.size(24.dp),
+                        colorFilter = ColorFilter.tint(
+                            if (index == selectedItem) Color(0xFF007AFF) else Color(0xFF666666)
+                        )
                     )
-                    ) }, // Use painterResource
-                label = { Text(item.title,
-                    color = if (index == selectedItem) Color(0xFF007AFF) else Color(0xFF666666)
-                    ) },
+                }, // Use painterResource
+                label = {
+                    Text(
+                        item.title,
+                        color = if (index == selectedItem) Color(0xFF007AFF) else Color(0xFF666666)
+                    )
+                },
                 selected = selectedItem == index,
-                onClick = { selectedItem = index
+                onClick = {
+                    selectedItem = index
+                    when (index) {
+                        0 -> {
+                            navController.navigate(route.dashBoardScreen)
+                        }
 
+                        1 -> {
+                            navController.navigate(route.orderScreen)
+                        }
 
+                        2 -> {
+                            navController.navigate(route.customerScreen)
+                        }
 
+                        3 -> {
+                            navController.navigate(route.orderPlaceScreen)
+                        }
+
+                        4 -> {
+                            navController.navigate(route.paymentScreen)
+                        }
+                    }
                 }
             )
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun DashboardScreenPreview() {
-    DashboardScreen()
 }

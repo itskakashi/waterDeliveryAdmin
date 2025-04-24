@@ -1,55 +1,153 @@
+import android.graphics.Paint
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.VerticalAlignmentLine
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import com.example.admin.presentation.FireBaseViewModel
+import com.example.admin.presentation.ui.route
+import com.google.firebase.Timestamp
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Serializer
+import org.koin.androidx.compose.koinViewModel
 
-// Data class to represent a customer
+// Data class to represent a customer (aligned with Firebase User data)
 data class Customer(
-    val name: String,
-    val initials: String,
-    val phone: String?,
+    val name: String?,
+    val initials: String?,
     val email: String?,
-    val balance: String,
-    val status: String,
+    val userName: String?,
+    val contactInfo: String?,
+    val amount: Double?,
+    val status: String?,
     val statusColor: Color,
-    val address:String?
+    val profilePictureUrl: String?,
+    val lastOrderDate: Timestamp?,
+    val isActive: Boolean?,
+    val monthlyUsage: List<Map<String, Any>>?,
+    val isRecurringDelivery: Boolean?,
+    val address: String?,
+    val defaultJarSize: String?,
+    val preferredDeliveryTime: String?,
+    val pushNotificationsEnabled: Boolean?,
+    val isStaff: Boolean?,
+    val isCompany: Boolean?,
+    val serviceName: String?,
+    val coldWaterPrice: Double?,
+    val regularWaterPrice: Double?,
+    val isOpen: Boolean?,
+    val depositMoney: Double?,
+    val canesTaken: Int?,
+    val canesReturned: Int?,
+    val userId: String? // Add userId from Firebase
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CustomersScreen() {
-    // Sample customer data (replace with your actual data source)
-    val customers = remember {
-        listOf(
-            Customer("Sarah Johnson", "SJ", "+1 (555) 123-4567", null, "$1,250", "Overdue", Color.Red, address = "mauganj"),
-            Customer("Michael Chen", "MC", "9200212857", "michael@email.com", "$850", "Paid", Color.Green, address = "patel nagar"),
-            Customer("Emma Williams", "EW", "+1 (555) 987-6543", null, "$2,100", "Overdue", Color.Red, address = "bhopal"),
-            Customer("David Brown", "DB", null, "david.b@email.com", "$450", "Paid", Color.Green, address = "indore"),
-            Customer("Lisa Anderson", "LA", "+1 (555) 246-8135", null, "$1,750", "Paid", Color.Green, address = "delhi")
+fun CustomersScreen(navController: NavController) {
+   val  viewModel= koinViewModel <FireBaseViewModel>()
+    // Observe LiveData from ViewModel
+    val allUsersState by viewModel.allUsers.collectAsState()
+    Log.d("all Users original" ,"$allUsersState")
+
+
+    LaunchedEffect(key1 = true) {
+        viewModel.getAllUsers({}, {})
+
+    }
+
+
+    // Convert Firebase User to Customer
+    val customers: List<Customer> = allUsersState.map { user ->
+        val status = user.status ?: "Active"
+        val statusColor = when (status) {
+            "Overdue" -> Color.Red
+            "Paid" -> Color.Green
+            else -> Color.Gray
+        }
+        val initials = user.initial ?: ""
+
+        Customer(
+            name = user.name ?: "",
+            initials = initials,
+            email = user.email,
+            userName = user.userName,
+            contactInfo = user.contactInfo,
+            amount = user.amount,
+            status = status,
+            statusColor = statusColor,
+            profilePictureUrl = user.profilePictureUrl,
+            lastOrderDate = user.lastOrderDate,
+            isActive = user.isActive,
+            monthlyUsage = user.monthlyUsage,
+            isRecurringDelivery = user.isRecurringDelivery,
+            address = user.address,
+            defaultJarSize = user.defaultJarSize,
+            preferredDeliveryTime = user.preferredDeliveryTime,
+            pushNotificationsEnabled = user.pushNotificationsEnabled,
+            isStaff = user.isStaff,
+            isCompany = user.isCompany,
+            serviceName = user.serviceName,
+            coldWaterPrice = user.coldWaterPrice,
+            regularWaterPrice = user.regularWaterPrice,
+            isOpen = user.isOpen,
+            depositMoney = user.depositMoney,
+            canesTaken = user.canesTaken,
+            canesReturned = user.canesReturned,
+            userId = user.userId
         )
     }
 
+    Log.d("all Users" ,"$customers")
     // State for search query
     var searchQuery by remember { mutableStateOf("") }
 
@@ -57,7 +155,27 @@ fun CustomersScreen() {
     var selectedFilter by remember { mutableStateOf("All") }
     val filters = listOf("All", "Recent", "Overdue", "Active")
 
+    // Filtered customer list
+    val filteredCustomers = remember(customers, searchQuery, selectedFilter) {
+        customers.filter { customer ->
+            val matchesSearchQuery = customer.name?.contains(searchQuery, ignoreCase = true) ?: false ||
+                    customer.email?.contains(searchQuery, ignoreCase = true) ?: false ||
+                    customer.contactInfo?.contains(searchQuery, ignoreCase = true) ?: false||
+                    customer.address?.contains(searchQuery, ignoreCase = true) ?: false
+
+            val matchesFilter = when (selectedFilter) {
+                "All" -> true
+                "Recent" -> true
+                "Overdue" -> customer.status == "Overdue"
+                "Active" -> customer.status == "Active"
+                else -> true
+            }
+            matchesSearchQuery && matchesFilter
+        }
+    }
+
     Scaffold(
+
         topBar = {
             TopAppBar(
                 title = {
@@ -82,16 +200,9 @@ fun CustomersScreen() {
             )
         },
         bottomBar = {
-            Button(
-                onClick = { /* Handle add new customer */ },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007AFF))
-            ) {
-                Text("Add New Customer", color = Color.White, fontSize = 16.sp)
-            }
+
+            BottomNavigationBar(navController)
+
         }
     ) { innerPadding ->
         Column(
@@ -115,8 +226,7 @@ fun CustomersScreen() {
                     }
 
                 },
-                singleLine = true
-                ,
+                singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.LightGray,
                     unfocusedBorderColor = Color.LightGray,
@@ -131,6 +241,7 @@ fun CustomersScreen() {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
+
             ) {
                 filters.forEach { filter ->
                     FilterChip(
@@ -152,13 +263,13 @@ fun CustomersScreen() {
                                 enabled = true,
                                 selected = selectedFilter == filter,
 
-                            )
+                                )
                         } else {
                             FilterChipDefaults.filterChipBorder(
                                 borderColor = Color.LightGray,
                                 selectedBorderColor = Color.Transparent,
                                 borderWidth = 1.dp,
-                                        enabled = true,
+                                enabled = true,
                                 selected = selectedFilter == filter,
                             )
                         },
@@ -170,22 +281,29 @@ fun CustomersScreen() {
 
             // Customer List
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                items(customers) { customer ->
-                    CustomerItem(customer)
+                items(filteredCustomers) { customer ->
+                    CustomerItem(customer,navController)
                 }
             }
+
         }
+
     }
+
 }
 
 @Composable
-fun CustomerItem(customer: Customer) {
+fun CustomerItem(customer: Customer,navController: NavController) {
+    val context=LocalContext.current
     Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .fillMaxWidth().clickable{
+                Toast.makeText(context,"Clicked ${customer.name}", Toast.LENGTH_SHORT).show()
+                                  navController.navigate(route.customerDetailScreen(customer.userId))
+                                     },
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Circle with Initials
         Box(
             modifier = Modifier
                 .size(40.dp)
@@ -193,35 +311,34 @@ fun CustomerItem(customer: Customer) {
                 .background(Color(0xFFE8F0FE)), // Light blue background
             contentAlignment = Alignment.Center
         ) {
-            Text(text = customer.initials, color = Color(0xFF007AFF)) // Blue initials
+            Text(
+                text = customer.initials ?: "",
+                color = Color(0xFF007AFF),
+                fontWeight = FontWeight.Bold
+            )
         }
-
         Spacer(modifier = Modifier.width(16.dp))
 
+        // Customer Info (Name, Contact)
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = customer.name, fontWeight = FontWeight.Bold)
-            if (customer.address != null) {
-                Text(text = customer.address, color = Color.Gray)
-            }
-            if (customer.email != null) {
-                Text(text = customer.email, color = Color.Gray)
-            }
-            if (customer.phone != null) {
-                Text(text = customer.phone, color = Color.Gray)
-            }
+            Text(text = customer.name ?: "", fontWeight = FontWeight.Bold, color = Color.Black)
+
+                Text(text = customer.address?:"No Address", color = Color.Gray,fontSize = 14.sp)
+
+
+
+                Text(text = customer.contactInfo?:"No Number", color = Color.Gray,fontSize = 14.sp)
 
 
         }
 
+        // Amount and Status
         Column(horizontalAlignment = Alignment.End) {
-            Text(text = customer.balance, fontWeight = FontWeight.Bold)
-            Text(text = customer.status, color = customer.statusColor)
+
+                Text(text = "₹${customer.amount?:"0"}", fontWeight = FontWeight.Bold, color = Color.Black)
+
+            Text(text = customer.status ?: "", color = customer.statusColor,fontSize = 14.sp)
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun CustomersScreenPreview() {
-    CustomersScreen()
+    Spacer(modifier = Modifier.height(10.dp))
 }

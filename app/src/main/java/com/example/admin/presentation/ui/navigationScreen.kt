@@ -12,6 +12,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.admin.presentation.FireBaseViewModel
+import com.example.admin.presentation.screens.CustomerDetailScreen
+import com.example.admin.presentation.screens.OrderScreen
+import com.example.admin.presentation.screens.PaymentScreen
 import com.example.admin.presentation.ui.LoginScreen
 import com.example.admin.presentation.ui.route
 import com.google.firebase.auth.FirebaseAuth
@@ -25,7 +28,8 @@ fun navigation(){
     val navHostController = rememberNavController()
     val firebaseAuth = FirebaseAuth.getInstance()
 
-    NavHost(navController = navHostController,startDestination =  if (firebaseAuth.currentUser != null) {
+    NavHost(navController = navHostController,startDestination =
+        if (firebaseAuth.currentUser != null) {
         val currentUser = firebaseAuth.currentUser!!.uid
 
         viewModel.updateUserId(currentUser)
@@ -35,18 +39,36 @@ fun navigation(){
     } else {
         Log.d("Navigation", "no User: ")
         route.loginScreen // User needs to log in
-    }){
+    }
+
+    ){
         composable<route.dashBoardScreen> {
-DashboardScreen()
+DashboardScreen(navHostController,viewModel)
         }
         composable<route.orderPlaceScreen>{
-           NewOrderScreen()
+           NewOrderScreen(navHostController,viewModel)
         }
         composable<route.customerScreen>{
-       CustomersScreen()
+       CustomersScreen(navHostController)
         }
         composable<route.loginScreen> {
             LoginScreen(navHostController)
+        }
+
+        composable<route.customerDetailScreen> {
+            val userId = it.arguments?.getString("userId")
+            CustomerDetailScreen(
+                userId,
+                viewModel = viewModel,
+
+            )
+        }
+        composable<route.orderScreen> {
+            OrderScreen(navHostController,viewModel)
+        }
+
+        composable<route.paymentScreen> {
+            PaymentScreen(viewModel,navHostController)
         }
 
     }
