@@ -115,7 +115,7 @@ class FireBaseViewModel(private val repository: FireBaseRepository) : ViewModel(
     private val _loginError = MutableStateFlow<String?>(null)
     val loginError: StateFlow<String?> = _loginError.asStateFlow()
 
-    private val _isLoadingAdmin = MutableStateFlow(false)
+    private val _isLoadingAdmin = MutableStateFlow(true)
     val isLoadingAdmin: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     // ... rest of your existing functions ...
@@ -158,17 +158,17 @@ class FireBaseViewModel(private val repository: FireBaseRepository) : ViewModel(
 
     fun updateCurrentAdmin(userid: String) {
         viewModelScope.launch {
-            _isLoading.value = true
+            _isLoadingAdmin.value = true
             repository.getUser(userid).onSuccess { user ->
                 Log.d("updateCurrentAdmin", "${user.toString()}")
                 _provider.value = user
-                _isLoading.value = false
+                _isLoadingAdmin.value = false
 
                 Log.d("updateCurrentAdmin1", "${_provider.value}")
                 Log.d("updateCurrentAdmin", "${provider.value}")
             }.onFailure { exception ->
                 println("Error getting user : ${exception.message}")
-                _isLoading.value = false
+                _isLoadingAdmin.value= false
             }
         }
     }

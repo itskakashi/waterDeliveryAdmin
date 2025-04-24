@@ -33,6 +33,7 @@ fun navigation(){
         val currentUser = firebaseAuth.currentUser!!.uid
 
         viewModel.updateUserId(currentUser)
+            viewModel.updateCurrentAdmin(currentUser)
 
         route.dashBoardScreen
 

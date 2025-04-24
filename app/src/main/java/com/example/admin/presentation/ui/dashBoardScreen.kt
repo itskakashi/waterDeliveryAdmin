@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,10 +54,17 @@ var selectedItem by mutableIntStateOf(0)
 @Composable
 fun DashboardScreen(navController: NavController, viewModel: FireBaseViewModel) {
     val admin by viewModel.provider.collectAsState()
+    val todayOrders by viewModel.todayOrders.observeAsState()
     Log.d("admin", "${admin}")
-    LaunchedEffect(Unit) {
-        viewModel.updateCurrentAdmin(viewModel.userid.value)
-    }
+
+        LaunchedEffect(Unit) {
+//            viewModel.updateCurrentAdmin(viewModel.userid.value)
+            viewModel.getAllUsersTodayOrders({},{})
+        }
+
+
+
+
 
     Scaffold(
         bottomBar = { BottomNavigationBar(navController) }
@@ -70,7 +78,7 @@ fun DashboardScreen(navController: NavController, viewModel: FireBaseViewModel) 
         ) {
             GreetingSection(admin)
             Spacer(modifier = Modifier.height(24.dp))
-            DashboardGrid()
+            DashboardGrid(todayOrders)
             Spacer(modifier = Modifier.height(60.dp))
             ButtonGrid(navController)
         }
@@ -89,7 +97,7 @@ fun GreetingSection(admin: User?) {
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = "${ admin?.name }",
+            text = "${ admin?.name?:"sir" }",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold
         )
@@ -110,33 +118,37 @@ data class InfoCard(
 )
 
 @Composable
-fun DashboardGrid() {
+fun DashboardGrid(todayOrders: List<Order>?) {
+    val pendingOrders = todayOrders?.filter { it.deliveryStatus == "Pending" }?.size ?: 0
+    val deliveredOrders = todayOrders?.filter { it.deliveryStatus == "Completed" }?.size ?: 0
+    val cancelledOrders = todayOrders?.filter { it.deliveryStatus == "Cancelled" }?.size ?: 0
+    val totalOrders = todayOrders?.size ?: 0
     val infoCards = listOf(
         InfoCard(
             "Today Orders",
-            "12",
+            "₹${totalOrders}",
             "+15%",
             R.drawable.shoppingcart,
             Color(0xFF6200EE)
         ), // Replace with your icons
         InfoCard(
-            "Total Revenue",
-            "\$1,248",
+            "Cancelled",
+            "₹${cancelledOrders}",
             "+8%",
             R.drawable.wallet,
             Color(0xFF00897B)
         ), // Replace with your icons
         InfoCard(
             "Active Orders",
-            "5",
+            "₹${pendingOrders}",
             "-2%",
             R.drawable.deliverybus,
             Color(0xFFE64A19)
         ), // Replace with your icons
         InfoCard(
-            "Pending Orders",
-            "5",
-            "-2%",
+            "Completed Orders",
+            "₹${deliveredOrders}",
+            "",
             R.drawable.deliverybus,
             Color(0xFF1976D2)
         ), // Replace with your icons
@@ -178,7 +190,6 @@ fun InfoCardView(card: InfoCard) {
             Column {
                 Text(text = card.title, fontSize = 14.sp, color = Color.Gray)
                 Text(text = card.count, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text(text = card.percentage, fontSize = 12.sp, color = card.color)
             }
         }
     }
