@@ -91,12 +91,14 @@ data class Bill(
 
 
 data class Order(
-    var userName: String? = "",
+    var userName: String? =null,
     var orderNumber: String? = null,
     var userID: DocumentReference? = null,
     var deliveryAddress: String? = null,
     var waterType: String? = null,
     var quantity: Int? = null,
+    var normalWaterQuantity: Int? = 30,
+    var coldWaterQuantity: Int? = 35,
     var expectedDeliveryDate: Timestamp? = null,
     var isDelivered: Boolean? = null,
     var deliveryTime: Timestamp? = null,

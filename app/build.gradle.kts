@@ -91,4 +91,5 @@ dependencies {
 
     implementation("com.google.android.material:material:1.12.0")
     implementation("com.google.android.libraries.places:places:4.2.0")
+    implementation("io.coil-kt:coil-compose:2.7.0")
 }

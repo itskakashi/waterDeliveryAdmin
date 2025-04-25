@@ -45,8 +45,6 @@ fun AdminTheme(
             val context = LocalContext.current
              dynamicLightColorScheme(context)
         }
-
-        darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
 

@@ -126,28 +126,28 @@ fun DashboardGrid(todayOrders: List<Order>?) {
     val infoCards = listOf(
         InfoCard(
             "Today Orders",
-            "₹${totalOrders}",
+            "    ${totalOrders}",
             "+15%",
             R.drawable.shoppingcart,
             Color(0xFF6200EE)
         ), // Replace with your icons
         InfoCard(
             "Cancelled",
-            "₹${cancelledOrders}",
+            "    ${cancelledOrders}",
             "+8%",
             R.drawable.wallet,
             Color(0xFF00897B)
         ), // Replace with your icons
         InfoCard(
             "Active Orders",
-            "₹${pendingOrders}",
+            "    ${pendingOrders}",
             "-2%",
             R.drawable.deliverybus,
             Color(0xFFE64A19)
         ), // Replace with your icons
         InfoCard(
             "Completed Orders",
-            "₹${deliveredOrders}",
+            "    ${deliveredOrders}",
             "",
             R.drawable.deliverybus,
             Color(0xFF1976D2)
@@ -241,6 +241,9 @@ fun ButtonView(buttonInfo: ButtonInfo, navController: NavController) {
                 navController.navigate(route.orderScreen)
                 selectedItem = 1
             }
+            if(buttonInfo.title=="Add Customer"){
+                navController.navigate(route.addCustomerScreen)
+            }
         },
         modifier = Modifier
             .fillMaxWidth()
@@ -313,11 +316,11 @@ fun BottomNavigationBar(navController: NavController) {
                         }
 
                         3 -> {
-                            navController.navigate(route.orderPlaceScreen)
+                            navController.navigate(route.paymentScreen)
                         }
 
                         4 -> {
-                            navController.navigate(route.paymentScreen)
+                            navController.navigate(route.profileScreen)
                         }
                     }
                 }
