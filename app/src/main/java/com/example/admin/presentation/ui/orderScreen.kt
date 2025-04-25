@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -64,6 +65,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TextButton
@@ -104,6 +106,14 @@ fun OrderScreen(navController: NavController,viewModel: FireBaseViewModel) {
             TopAppBar(
                 title = {
                     Text(text = "Orders", style = MaterialTheme.typography.headlineMedium)
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = "Back"
+                        )
+                    }
                 }
             )
         },
@@ -327,7 +337,10 @@ fun orderItem(order: Order, viewModel: FireBaseViewModel,selectedDate: LocalDate
                     tint = Color.Gray
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(text = "Qty: ${order.quantity ?: 0}", color = Color.Gray)
+                Text(
+                    text = "Normal: ${order.normalWaterQuantity ?: 0} | Cold: ${order.coldWaterQuantity ?: 0}",
+                    color = Color.Gray
+                )
                 Spacer(modifier = Modifier.width(16.dp))
                 Icon(
                     painter = painterResource(id = com.example.admin.R.drawable.time),
@@ -339,7 +352,7 @@ fun orderItem(order: Order, viewModel: FireBaseViewModel,selectedDate: LocalDate
                 Text(text = "$deliveryDay, $formattedDeliveryTime", color = Color.Gray)
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = "Water type: ${order.waterType}", color = Color.Gray)
+            Text(text = "Cane Returned: ${order.canesReturning}", color = Color.Gray)
             Spacer(modifier = Modifier.height(16.dp))
             if (order.deliveryStatus == "Pending") {
                 Row(

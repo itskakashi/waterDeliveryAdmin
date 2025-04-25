@@ -1,6 +1,7 @@
 package com.example.admin.presentation.screens
 
 import BottomNavigationBar
+import Payment
 import User
 import android.os.Build
 import android.util.Log
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.admin.R
 import com.example.admin.presentation.FireBaseViewModel
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -61,11 +63,12 @@ import kotlinx.coroutines.flow.flow
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.util.Date
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PaymentScreen(viewModel: FireBaseViewModel,navController: NavController) {
+fun PaymentScreen(viewModel: FireBaseViewModel, navController: NavController) {
     var selectedCustomer by remember { mutableStateOf<User?>(null) }
     var amountPaying by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
@@ -85,7 +88,7 @@ fun PaymentScreen(viewModel: FireBaseViewModel,navController: NavController) {
             TopAppBar(
                 title = { Text("Add Payment", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = { /* Handle back navigation */ }) {
+                    IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                             contentDescription = "Back"
@@ -94,7 +97,7 @@ fun PaymentScreen(viewModel: FireBaseViewModel,navController: NavController) {
                 }
             )
         },
-        bottomBar = {BottomNavigationBar(navController = navController)}
+        bottomBar = { BottomNavigationBar(navController = navController) }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -157,7 +160,7 @@ fun PaymentScreen(viewModel: FireBaseViewModel,navController: NavController) {
                 onClick = {
                     if (selectedCustomer != null && amountPaying.isNotEmpty()
                         && amountPaying.toDouble() > 0.0
-                        && amountPaying.toDouble() <= selectedCustomer?.amount!!
+                        && amountPaying.toDouble() <= (selectedCustomer?.amount ?: 0.0)
                     ) {
                         showConfirmationDialog = true // Show confirmation dialog
                     } else {
@@ -184,17 +187,31 @@ fun PaymentScreen(viewModel: FireBaseViewModel,navController: NavController) {
                 }
             },
             confirmButton = {
+                val db: FirebaseFirestore = Firebase.firestore
+                val userRef = db.collection("users").document(selectedCustomer?.userId ?: "")
                 TextButton(onClick = {
                     // Perform the actual payment update
-                    viewModel.updateAmount(
-                        db.collection("users").document(selectedCustomer?.userId ?: ""),
-                        amountPaying.toDouble(), false, {
-                            Toast.makeText(context, "Payment Successful", Toast.LENGTH_SHORT)
-                                .show()
-                        }, {
-                            Toast.makeText(context, "Payment Failed", Toast.LENGTH_SHORT).show()
-                        })
-                    showConfirmationDialog = false
+                    val payment = Payment(
+                        userId = userRef,
+                        paymentAmount = amountPaying.toDouble(),
+                        paymentDate = Timestamp(Date()),
+                        paymentMethod = "Cash" // You can change this
+                    )
+                    viewModel.recordPayment(payment, { paymentId ->
+                        viewModel.updateAmount(
+                            db.collection("users").document(selectedCustomer?.userId ?: ""),
+                            amountPaying.toDouble(), false, {
+                                Toast.makeText(context, "Payment Successful", Toast.LENGTH_SHORT)
+                                    .show()
+                                navController.popBackStack()
+                            }, {
+                                Toast.makeText(context, "Payment Failed", Toast.LENGTH_SHORT).show()
+                            })
+                        showConfirmationDialog = false
+                    }, {
+                        Toast.makeText(context, "Payment Failed", Toast.LENGTH_SHORT).show()
+                    })
+
                 }) {
                     Text("Confirm")
                 }
@@ -322,6 +339,7 @@ fun CustomerDropdown(allUsers: List<User>, onCustomerSelected: (User) -> Unit) {
                             onClick = {
                                 selectedCustomer = customer
                                 onCustomerSelected(customer)
+
                                 expanded = false
                             }
                         )

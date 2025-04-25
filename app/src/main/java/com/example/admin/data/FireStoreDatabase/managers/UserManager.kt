@@ -2,6 +2,8 @@
 
 
 
+import android.util.Log
+import androidx.compose.ui.geometry.isEmpty
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
@@ -9,6 +11,7 @@ import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.QuerySnapshot
 
 
 class UserManager {
@@ -148,6 +151,61 @@ class UserManager {
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    suspend fun addCustomerWithoutAuth(user: User): Result<String> {
+        return try {
+            // First, check if a user with the same mobile number or email already exists
+            val existingUserByMobile = getUserByMobileNumber(user.contactInfo!!)
+            val existingUserByEmail = if (user.email != null) getUserByEmail(user.email!!) else null
+           Log.d("existingUserByMobile",existingUserByMobile.toString())
+            Log.d("existingUserByEmail",existingUserByEmail.toString())
+
+
+            if (existingUserByMobile != null) {
+                return Result.failure(Exception("User with the same mobile number already exists"))
+            }
+
+            if (existingUserByEmail != null) {
+                return Result.failure(Exception("User with the same email address already exists"))
+            }
+
+            // Generate a unique user ID (you could use a different method if needed)
+            val userId = db.collection("users").document().id
+            user.userId = userId
+
+            // Set the user data in Firestore
+            db.collection("users").document(userId).set(user).await()
+            Result.success(userId)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun getUserByMobileNumber(mobileNumber: String): User? {
+        val querySnapshot: QuerySnapshot = db.collection("users")
+            .whereEqualTo("contactInfo", mobileNumber)
+            .get()
+            .await()
+
+        return if (querySnapshot.isEmpty) {
+            null
+        } else {
+            querySnapshot.documents[0].toObject(User::class.java)
+        }
+    }
+
+    private suspend fun getUserByEmail(email: String): User? {
+        val querySnapshot: QuerySnapshot = db.collection("users")
+            .whereEqualTo("email", email)
+            .get()
+            .await()
+
+        return if (querySnapshot.isEmpty) {
+            null
+        } else {
+            querySnapshot.documents[0].toObject(User::class.java)
         }
     }
 

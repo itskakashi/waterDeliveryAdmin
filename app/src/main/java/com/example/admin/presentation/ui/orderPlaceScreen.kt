@@ -1,3 +1,5 @@
+package com.example.admin.presentation.ui
+
 import AdminUser
 import Analytics
 import Bill
@@ -5,15 +7,14 @@ import Order
 import Payment
 import User
 import android.os.Build
-import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,10 +28,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -39,14 +40,12 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -54,68 +53,53 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.runtime.traceEventEnd
-import androidx.compose.ui.platform.LocalContext
-import androidx.room.util.TableInfo
 import com.example.admin.R
 import com.example.admin.presentation.FireBaseViewModel
-import com.example.admin.presentation.ui.MyColor
-import com.google.firebase.Firebase
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
+import com.google.firebase.Firebase
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flow
-import org.koin.androidx.compose.koinViewModel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.Date
-import kotlin.text.contains
-import kotlin.time.Duration
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NewOrderScreen(navController: NavController,viewModel: FireBaseViewModel) {
+fun NewOrderScreen(navController: NavController, viewModel: FireBaseViewModel) {
 
-
-    var selectedJar by remember { mutableIntStateOf(0) }
-    var Quantity by remember { mutableIntStateOf(1) }
+    var selectedNormalJarQuantity by remember { mutableIntStateOf(0) }
+    var selectedColdJarQuantity by remember { mutableIntStateOf(0) }
     var selectedCustomer by remember { mutableStateOf<User?>(null) }
     var selectedDate by remember { mutableStateOf<Date?>(null) }
     var returnCanCount by remember { mutableIntStateOf(0) }
-
     var isMarkedAsDelivered by remember { mutableStateOf(false) }
     var isMarkedAsPaid by remember { mutableStateOf(false) }
-
+    var totalPrice by remember { mutableIntStateOf(0) }
     val allUsers by viewModel.allUsers.collectAsState()
+    var showConfirmDialog by remember { mutableStateOf(false) } // State for showing the dialog
+    val context = LocalContext.current
 
     LaunchedEffect(key1 = true) {
         viewModel.getAllUsers(onSuccess = {
@@ -125,6 +109,93 @@ fun NewOrderScreen(navController: NavController,viewModel: FireBaseViewModel) {
         }
     }
 
+
+    // Function to handle order confirmation
+    fun confirmOrder() {
+
+        if (selectedCustomer != null && selectedDate != null && (selectedNormalJarQuantity > 0 || selectedColdJarQuantity > 0)) {
+            val db = Firebase.firestore
+            val userRef = db.collection("users").document(selectedCustomer!!.userId!!)
+
+            val order = Order(
+                userName = selectedCustomer!!.name,
+                userID = userRef,
+                deliveryAddress = selectedCustomer!!.address,
+                normalWaterQuantity = selectedNormalJarQuantity,
+                coldWaterQuantity = selectedColdJarQuantity,
+                expectedDeliveryDate = Timestamp(selectedDate!!),
+                isDelivered = isMarkedAsDelivered,
+                orderDate = Timestamp.now().toString(),
+                totalAmount = totalPrice.toDouble(),
+                deliveryStatus = if (isMarkedAsDelivered) "Completed" else "Pending",
+                canesReturning = returnCanCount,
+            )
+            viewModel.createOrder(selectedCustomer!!.userId!!, order, onSuccess = { orderId ->
+                Toast.makeText(context, "your order is successful $orderId", Toast.LENGTH_SHORT).show()
+                Log.d("order", "order created successful ${orderId.toString()}")
+                val db: FirebaseFirestore = Firebase.firestore
+
+
+                if (isMarkedAsDelivered) {
+                    val testBill = Bill(
+                        userId = db.collection("users").document(selectedCustomer!!.userId ?: ""),
+                        amount = totalPrice.toDouble(),
+                        totalJars = selectedColdJarQuantity + selectedNormalJarQuantity,
+                        billDate = Timestamp(java.util.Date()),
+                        paymentStatus = if (isMarkedAsPaid == true) "Paid" else "UnPaid",
+                        isPaid = isMarkedAsPaid,
+                        orderId = db.collection("orders").document(orderId),
+
+                        )
+
+                    viewModel.createBill(
+                        testBill,
+                        onSuccess = {
+                            Log.d("billGenerated", " bill is created successfully ${it.toString()}")
+
+                        },
+                        onFailure = { e ->
+                            Log.d("billGeneratedFailed", " bill is created Unsuccessfully ${e.toString()}")
+
+                        })
+                    if (!isMarkedAsPaid) {
+                        selectedCustomer?.let { customer ->
+                            val newAmount = customer.amount?.plus(totalPrice.toDouble()) ?: totalPrice.toDouble()
+                            viewModel.updateUser(customer.copy(amount = newAmount), {
+                                Log.d("UpdatedSuccessfully", " bill amount is successfully updated $")
+                            }, {
+                                Log.d("UpdatedUNSuccessfully", " bill amount is UNsuccessfully updated ${it.message.toString()}")
+                            })
+                        }
+                    }
+                    navController.popBackStack()
+
+                } else {
+                    navController.popBackStack()
+                }
+
+
+            }) {
+                Log.d("order", "can not create an order ${it.message}")
+                Toast.makeText(
+                    context,
+                    "Failed to create order. Please try again later.",
+                    Toast.LENGTH_LONG
+                ).show()
+
+            }
+
+
+        } else {
+            if (selectedCustomer == null) {
+                Toast.makeText(context, "Please select a customer", Toast.LENGTH_SHORT).show()
+            } else if (selectedDate == null) {
+                Toast.makeText(context, "Please select a date", Toast.LENGTH_SHORT).show()
+            } else if (selectedNormalJarQuantity <= 0 && selectedColdJarQuantity <= 0) {
+                Toast.makeText(context, "Please add Jar", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -143,15 +214,17 @@ fun NewOrderScreen(navController: NavController,viewModel: FireBaseViewModel) {
                         )
                     }
                 },
-//                navigationIcon = {
-//                    IconButton(onClick = { navController.popBackStack() }) {
-//                        Icon(Icons.Filled.ArrowBack, "Back", tint = Color.Black)
-//                    }
-//                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
-        },
-        bottomBar = { BottomNavigationBar(navController =navController ) }
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -161,45 +234,162 @@ fun NewOrderScreen(navController: NavController,viewModel: FireBaseViewModel) {
                 .verticalScroll(rememberScrollState())
         ) {
             StandardDeliveryButton()
-            Spacer(modifier = Modifier.height(24.dp)) // Increased spacing
+            Spacer(modifier = Modifier.height(24.dp))
             CustomerDropdown(allUsers = allUsers, onCustomerSelected = { selectedCustomer = it })
             Spacer(modifier = Modifier.height(8.dp))
             AddNewCustomerLink()
-            Spacer(modifier = Modifier.height(24.dp)) // Increased spacing
-            DeliveryAddressField(selectedCustomer= selectedCustomer)
-            Spacer(modifier = Modifier.height(24.dp)) // Increased spacing
-            JarTypeSegmentedButton(onValueChange = { selectedJar = it })
-            Spacer(modifier = Modifier.height(24.dp)) // Increased spacing
-            QuantityCounter(onValueChange = { Quantity = it })
-            Spacer(modifier = Modifier.height(24.dp)) // Increased spacing
+            Spacer(modifier = Modifier.height(24.dp))
+            DeliveryAddressField(selectedCustomer = selectedCustomer)
+            Spacer(modifier = Modifier.height(24.dp))
+            JarTypeCounter(
+                onNormalWaterChange = { selectedNormalJarQuantity = it },
+                onColdWaterChange = { selectedColdJarQuantity = it }
+            )
+            Spacer(modifier = Modifier.height(24.dp))
             ReturnCanCounter(onValueChange = { returnCanCount = it })
-            Spacer(modifier = Modifier.height(24.dp)) // Increased spacing
+            Spacer(modifier = Modifier.height(24.dp))
             DatePickerFieldd(onDateSelected = { selectedDate = it })
-            Spacer(modifier = Modifier.height(24.dp)) // Increased spacing
+            Spacer(modifier = Modifier.height(24.dp))
             MarkAsDeliveredCheckbox(
                 isChecked = isMarkedAsDelivered,
                 onCheckedChange = { isMarkedAsDelivered = it }
             )
-            Spacer(modifier = Modifier.height(24.dp)) // Increased spacing
+            Spacer(modifier = Modifier.height(24.dp))
             MarkAsPaymentCheckbox(
                 isChecked = isMarkedAsPaid,
                 onCheckedChange = { isMarkedAsPaid = it }
             )
             Spacer(modifier = Modifier.height(24.dp))
-            Spacer(modifier = Modifier.weight(1f)) // Push the button to the bottom
-            CreateOrderButton(
-                selectedCustomer = selectedCustomer,
-                address = selectedCustomer?.address?:"",
-                selectedJar = selectedJar,
-                Quantity = Quantity,
-                selectedDate = selectedDate,
-                isMarkedAsDelivered = isMarkedAsDelivered,
-                isMarkedAsPaid = isMarkedAsPaid,
-                returnCanCount=returnCanCount,
-                viewModel = viewModel,
-//                navController = navController
-            )
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFE5E7EB), shape = RoundedCornerShape(10.dp))
+                    .padding(8.dp),
+                verticalArrangement = Arrangement.Top,
+                horizontalAlignment = Alignment.Start
+            ) {
+                Spacer(modifier = Modifier.padding(top = 10.dp))
+                Text("Order Summery")
+                Spacer(modifier = Modifier.padding(top = 10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    if (selectedNormalJarQuantity > 0) {
+                        Text("Normal Water($selectedNormalJarQuantity)")
+                        Text("₹ ${selectedCustomer?.regularWaterPrice?.times(selectedNormalJarQuantity) ?: 0.0}.00")
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    if (selectedColdJarQuantity > 0) {
+                        Text("Cold Water($selectedColdJarQuantity)")
+                        Text("₹ ${selectedCustomer?.coldWaterPrice?.times(selectedColdJarQuantity) ?: 0.0}.00")
+                    }
+                }
+                Spacer(modifier = Modifier.padding(top = 10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Delivery Fee")
+                    Text("₹ 0.00")
+                }
+                Spacer(modifier = Modifier.padding(top = 10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Cane Returning ")
+                    Text("${returnCanCount}")
+                }
+
+                Spacer(modifier = Modifier.padding(top = 10.dp))
+                Spacer(modifier = Modifier.padding(top = 10.dp))
+                HorizontalDivider(
+                    modifier = Modifier.padding(10.dp),
+                    thickness = 2.dp,
+                    color = Color.LightGray
+                )
+                Spacer(modifier = Modifier.padding(top = 10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Total")
+                    totalPrice = ((selectedCustomer?.regularWaterPrice?.times(selectedNormalJarQuantity) ?: 0.0) +
+                            (selectedCustomer?.coldWaterPrice?.times(selectedColdJarQuantity) ?: 0.0)).toInt()
+                    Text("₹ ${totalPrice} ")
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+            Button(
+                onClick = {
+                    // Show the confirmation dialog
+                    showConfirmDialog = true
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007AFF))
+            ) {
+                Text(text = "Create Order", color = Color.White, fontSize = 16.sp)
+            }
         }
+    }
+
+    // Confirmation Dialog
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = { Text("Confirm Your Order") },
+            text = {
+                Column {
+                    Text("Customer Name: ${selectedCustomer?.name}")
+                    Text("Delivery Address: ${selectedCustomer?.address}")
+                    if (selectedNormalJarQuantity > 0) {
+                        Text(
+                            "Normal Water: $selectedNormalJarQuantity - ₹ ${
+                                selectedCustomer?.regularWaterPrice?.times(
+                                    selectedNormalJarQuantity
+                                ) ?: 0.0
+                            }.00"
+                        )
+                    }
+                    if (selectedColdJarQuantity > 0) {
+                        Text(
+                            "Cold Water: $selectedColdJarQuantity - ₹ ${
+                                selectedCustomer?.coldWaterPrice?.times(
+                                    selectedColdJarQuantity
+                                ) ?: 0.0
+                            }.00"
+                        )
+                    }
+                    Text("Returning Canes: ${returnCanCount}")
+                    Text("Total: ₹ ${totalPrice}")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showConfirmDialog = false
+                    confirmOrder()
+                }) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -219,7 +409,7 @@ fun StandardDeliveryButton() {
 
             ) {
             Icon(
-                painter = painterResource(id = R.drawable.standarddelivery), // Replace with your icon
+                painter = painterResource(id = R.drawable.standarddelivery),
                 contentDescription = "Standard Delivery",
                 tint = Color.White,
                 modifier = Modifier.size(24.dp, 27.2.dp)
@@ -237,25 +427,17 @@ fun StandardDeliveryButton() {
     }
 }
 
-
-
-
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomerDropdown(allUsers: List<User>, onCustomerSelected: (User) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var selectedCustomer by remember { mutableStateOf<User?>(null) }
     val interactionSource = remember { MutableInteractionSource() }
-
-    // Search-related state
     var searchQuery by remember { mutableStateOf("") }
     var filteredUsers by remember { mutableStateOf(allUsers) }
 
-
     LaunchedEffect(searchQuery, allUsers) {
-        if(allUsers.isNotEmpty()){
+        if (allUsers.isNotEmpty()) {
             flow {
                 emit(searchQuery)
             }.debounce(500).collect { query ->
@@ -318,8 +500,8 @@ fun CustomerDropdown(allUsers: List<User>, onCustomerSelected: (User) -> Unit) {
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
                 modifier = Modifier.fillMaxWidth()
+
             ) {
-                // Search field in DropdownMenu
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -336,10 +518,19 @@ fun CustomerDropdown(allUsers: List<User>, onCustomerSelected: (User) -> Unit) {
 
                     filteredUsers.forEach { customer ->
                         DropdownMenuItem(
-                            text = {   Column {
-                                Text(text = customer.name ?: "", fontWeight = FontWeight.Bold)
-                                Text(text = customer.address ?: "", color = Color.Gray, fontSize = 12.sp)
-                            } },
+                            text = {
+                                Column {
+                                    Text(
+                                        text = customer.name ?: "",
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = customer.address ?: "",
+                                        color = Color.Gray,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            },
                             onClick = {
                                 selectedCustomer = customer
                                 onCustomerSelected(customer)
@@ -358,16 +549,16 @@ fun AddNewCustomerLink() {
     Text(
         text = "+ Add New Customer",
         color = Color(0xFF007AFF),
-        fontSize = 16.sp, // Match font size to image
+        fontSize = 16.sp,
         modifier = Modifier.clickable { /* Handle add new customer action */ }
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeliveryAddressField( selectedCustomer: User?) {
+fun DeliveryAddressField(selectedCustomer: User?) {
 
-    Log.d("address", "DeliveryAddressField: ${selectedCustomer?.address?:""}")
+    Log.d("address", "DeliveryAddressField: ${selectedCustomer?.address ?: ""}")
     Text(
         text = "Delivery Address",
         color = Color.Black,
@@ -376,21 +567,19 @@ fun DeliveryAddressField( selectedCustomer: User?) {
     )
     Spacer(modifier = Modifier.height(8.dp))
     OutlinedTextField(
-        value = selectedCustomer?.address?: "",
+        value = selectedCustomer?.address ?: "",
         readOnly = true,
         onValueChange = {
         },
-        placeholder = { Text("Enter delivery address", color = Color.Gray) }, // Gray placeholder
+        placeholder = { Text("Enter delivery address", color = Color.Gray) },
         trailingIcon = {
             Icon(
                 imageVector = Icons.Filled.LocationOn,
                 "Delivery Address",
                 tint = Color.Gray
             )
-        }, // Gray icon
-
+        },
         modifier = Modifier.fillMaxWidth(),
-
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Color(0xFF007AFF),
             unfocusedBorderColor = Color.LightGray,
@@ -406,39 +595,95 @@ fun DeliveryAddressField( selectedCustomer: User?) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun JarTypeSegmentedButton(onValueChange: (Int) -> Unit) {
-    var selectedIndex by remember { mutableIntStateOf(0) }
-    val options = listOf("Normal", "Cold")
+fun JarTypeCounter(onNormalWaterChange: (Int) -> Unit, onColdWaterChange: (Int) -> Unit) {
+    var normalWaterCount by remember { mutableIntStateOf(0) }
+    var coldWaterCount by remember { mutableIntStateOf(0) }
 
     Column {
         Text(
-            text = "Jar Type",
+            "Jar Type",
             color = Color.Black,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium
         )
         Spacer(modifier = Modifier.height(8.dp))
-        SingleChoiceSegmentedButtonRow(
-            modifier = Modifier.fillMaxWidth()
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFFE5E7EB), shape = RoundedCornerShape(10.dp))
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            options.forEachIndexed { index, label ->
-                SegmentedButton(
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
-                    onClick = {
-                        selectedIndex = index
-                        onValueChange(selectedIndex)
-                    },
-                    selected = selectedIndex == index,
-                    colors = SegmentedButtonDefaults.colors(
-                        activeContainerColor = Color(0xFF007AFF),
-                        inactiveContainerColor = Color(0xFFF2F2F7), // Correct light gray
-                        activeContentColor = Color.White,
-                        inactiveContentColor = Color.Black
+            Text(text = "Normal Water", modifier = Modifier.padding(start = 16.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = {
+                    if (normalWaterCount > 0) normalWaterCount--
+                    onNormalWaterChange(normalWaterCount)
+                }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.minus),
+                        modifier = Modifier.size(20.dp),
+                        contentDescription = "Decrease Normal Water Quantity",
+                        tint = Color(0xFF4B5563)
                     )
-                ) {
-                    Text(
-                        text = label,
-                        color = if (selectedIndex == index) Color.White else Color.Black
+                }
+                Text(
+                    text = normalWaterCount.toString(),
+                    fontSize = 18.sp,
+                    color = Color.Black
+                )
+                IconButton(onClick = {
+                    normalWaterCount++
+                    onNormalWaterChange(normalWaterCount)
+                }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.plus),
+                        modifier = Modifier.size(20.dp),
+                        contentDescription = "Increase Normal Water Quantity",
+                        tint = Color(0xFF4B5563)
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFFE5E7EB), shape = RoundedCornerShape(10.dp))
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "Cold Water", modifier = Modifier.padding(start = 16.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = {
+                    if (coldWaterCount > 0) coldWaterCount--
+                    onColdWaterChange(coldWaterCount)
+                }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.minus),
+                        modifier = Modifier.size(20.dp),
+                        contentDescription = "Decrease Cold Water Quantity",
+                        tint = Color(0xFF4B5563)
+                    )
+                }
+                Text(
+                    text = coldWaterCount.toString(),
+                    fontSize = 18.sp,
+                    color = Color.Black
+                )
+                IconButton(onClick = {
+                    coldWaterCount++
+                    onColdWaterChange(coldWaterCount)
+                }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.plus),
+                        modifier = Modifier.size(20.dp),
+                        contentDescription = "Increase Cold Water Quantity",
+                        tint = Color(0xFF4B5563)
                     )
                 }
             }
@@ -446,53 +691,6 @@ fun JarTypeSegmentedButton(onValueChange: (Int) -> Unit) {
     }
 }
 
-@Composable
-fun QuantityCounter(onValueChange: (Int) -> Unit) {
-    var count by remember { mutableIntStateOf(1) }
-    Column {
-
-        Text(
-            "Quantity",
-            color = Color.Black,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFFE5E7EB), shape = RoundedCornerShape(10.dp)),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = {
-                if (count > 1) count--
-                onValueChange(count);
-            }) {
-                Icon(
-                    painter = painterResource(id = R.drawable.minus),
-                    modifier = Modifier.size(20.dp),
-                    contentDescription = "Decrease Quantity",
-                    tint = Color(0xFF4B5563)
-                )
-            }
-            Text(text = count.toString(), fontSize = 18.sp, color = Color.Black)
-            IconButton(onClick = {
-                count++
-                onValueChange(count);
-
-            }
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.plus),
-                    modifier = Modifier.size(20.dp),
-                    contentDescription = "Increase Quantity",
-                    tint = Color(0xFF4B5563)
-                )
-            }
-        }
-    }
-}
 @Composable
 fun ReturnCanCounter(onValueChange: (Int) -> Unit) {
     var count by remember { mutableIntStateOf(0) }
@@ -508,7 +706,8 @@ fun ReturnCanCounter(onValueChange: (Int) -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFFE5E7EB), shape = RoundedCornerShape(10.dp)),
+                .background(Color(0xFFE5E7EB), shape = RoundedCornerShape(10.dp))
+                .padding(8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -553,7 +752,6 @@ fun DatePickerFieldd(onDateSelected: (Date) -> Unit) {
 
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = currentMillis)
 
-    // Automatically set the current date when the composable launches
     LaunchedEffect(key1 = true) {
         val initialDateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(currentMillis), ZoneOffset.UTC)
         val initialDate = Date.from(initialDateTime.toInstant(ZoneOffset.UTC))
@@ -563,6 +761,7 @@ fun DatePickerFieldd(onDateSelected: (Date) -> Unit) {
 
     Column {
         Text(
+
             text = "Expected Delivery Date",
             color = Color.Black,
             fontSize = 14.sp,
@@ -611,7 +810,7 @@ fun DatePickerFieldd(onDateSelected: (Date) -> Unit) {
                             onDateSelected(date)
 
                             var dateText = dateTime.toString()
-                            selectedDateText = dateText.substring(0,10)
+                            selectedDateText = dateText.substring(0, 10)
 
                         }
                         showDatePicker = false
@@ -632,6 +831,7 @@ fun DatePickerFieldd(onDateSelected: (Date) -> Unit) {
         }
     }
 }
+
 @Composable
 fun MarkAsDeliveredCheckbox(isChecked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Column(
@@ -716,104 +916,5 @@ fun MarkAsPaymentCheckbox(isChecked: Boolean, onCheckedChange: (Boolean) -> Unit
             }
         }
         Spacer(Modifier.height(16.dp))
-    }
-}
-
-
-
-
-@RequiresApi(Build.VERSION_CODES.O)
-@Composable
-fun CreateOrderButton(
-    selectedCustomer: User?,
-    address: String,
-    selectedJar: Int,
-    Quantity: Int,
-    selectedDate: Date?,
-    isMarkedAsDelivered: Boolean,
-    isMarkedAsPaid: Boolean,
-    returnCanCount:Int,
-    viewModel: FireBaseViewModel,
-//    navController: NavController
-) {
-    val context= LocalContext.current
-    Button(
-        onClick = {
-
-            if (selectedCustomer != null && selectedDate != null && Quantity>0 ) {
-                val db = Firebase.firestore
-                val userRef = db.collection("users").document(selectedCustomer.userId!!)
-
-                val order = Order(
-                    userName = selectedCustomer.name,
-                    userID = userRef,
-                    deliveryAddress = address,
-                    waterType = if (selectedJar == 0) "Normal" else "Cold",
-                    quantity = Quantity,
-                    expectedDeliveryDate = Timestamp(selectedDate),
-                    isDelivered = isMarkedAsDelivered,
-                    orderDate = Timestamp.now().toString(),
-                    totalAmount = (Quantity * (if (selectedJar == 0) 30 else 35)).toDouble(),
-                    deliveryStatus = if(isMarkedAsDelivered)"Completed" else "Pending",
-                    canesReturning = returnCanCount,
-                    )
-                viewModel.createOrder(selectedCustomer.userId!!, order, onSuccess = {
-                    Toast.makeText(context,"your order is succesfull $it", Toast.LENGTH_SHORT).show()
-                    Log.d("order", "order created successful ${it.toString()}")
-                    val db: FirebaseFirestore = Firebase.firestore
-
-
-                    if(isMarkedAsDelivered){
-                        val testBill = Bill(
-                            userId = db.collection("users").document(selectedCustomer.userId ?:""),
-                            amount = Quantity.toDouble() *(if (selectedJar == 0) 30 else 35 ).toDouble(),
-                            totalJars = Quantity,
-                            billDate = Timestamp(java.util.Date()),
-                            paymentStatus = if (isMarkedAsPaid == true) "Paid" else "UnPaid",
-                            isPaid = isMarkedAsPaid,
-                            orderId = db.collection("orders").document(),
-
-                            )
-
-                        viewModel.createBill(testBill,
-                            onSuccess = {
-                                Log.d("billGenerated"," bill is created successfully ${it.toString()}")
-
-                            },
-                            onFailure = { e ->
-                                Log.d("billGeneratedFailed"," bill is created Unsuccessfully ${it.toString()}")
-
-                            })
-                        if(!isMarkedAsPaid){
-                            viewModel.updateUser(selectedCustomer.copy(amount = selectedCustomer.amount?.plus(
-                                (Quantity.toDouble() *(if (selectedJar == 0) 30 else 35 ).toDouble())
-                            )),{
-                                Log.d("UpdatedSuccessfully"," bill amount is successfully updated ${it.toString()}")
-                            },{
-                                Log.d("UpdatedUNSuccessfully"," bill amount is UNsuccessfully updated ${it.message.toString()}")
-                            })
-                        }
-
-                    }
-
-
-
-
-                }) {
-                    Log.d("order", "can not create an order ${it.message}")
-                }
-
-            } else {
-                Log.d("order", "can not create an order")
-            }
-
-
-
-        },
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007AFF))
-    ) {
-        Text(text = "Create Order", color = Color.White, fontSize = 16.sp)
     }
 }

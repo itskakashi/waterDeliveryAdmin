@@ -1,14 +1,14 @@
 package com.example.admin
 
-
 import CustomersScreen
-import NewOrderScreen
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.rememberNavController
 import com.example.admin.presentation.screens.OrderScreen
 import com.example.admin.presentation.ui.route
@@ -21,11 +21,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val navController= rememberNavController()
-            AdminTheme {
+            val navController = rememberNavController()
+            AdminTheme(dynamicColor = true, colorScheme = dynamicLightColorScheme(LocalContext.current)) {
                 navigation()
             }
         }
     }
 }
-

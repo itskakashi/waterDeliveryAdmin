@@ -97,6 +97,9 @@ class FireBaseViewModel(private val repository: FireBaseRepository) : ViewModel(
     private val _payments = MutableStateFlow<List<Payment>>(emptyList())
     val payments: StateFlow<List<Payment>> get() = _payments
 
+    private val _userPayments = MutableStateFlow<List<Payment>>(emptyList())
+    val userPayments: StateFlow<List<Payment>> get() = _userPayments
+
     private val _user = MutableStateFlow<User?>(null)
     val user: StateFlow<User?> get() = _user
 
@@ -117,6 +120,9 @@ class FireBaseViewModel(private val repository: FireBaseRepository) : ViewModel(
 
     private val _isLoadingAdmin = MutableStateFlow(true)
     val isLoadingAdmin: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _recordPaymentStatus = MutableLiveData<Result<String>>()
+    val recordPaymentStatus: LiveData<Result<String>> = _recordPaymentStatus
 
     // ... rest of your existing functions ...
 
@@ -230,6 +236,20 @@ class FireBaseViewModel(private val repository: FireBaseRepository) : ViewModel(
     ) {
         viewModelScope.launch {
             repository.addCustomer(user, password).onSuccess { userId ->
+                onSuccess(userId)
+            }.onFailure { exception ->
+                onFailure(exception)
+            }
+        }
+    }
+
+    fun addCustomerWithoutAuth(
+        user: User,
+        onSuccess: (String) -> Unit,
+        onFailure: (Throwable) -> Unit
+    ) {
+        viewModelScope.launch {
+            repository.addCustomerWithoutAuth(user).onSuccess { userId ->
                 onSuccess(userId)
             }.onFailure { exception ->
                 onFailure(exception)
@@ -677,6 +697,31 @@ class FireBaseViewModel(private val repository: FireBaseRepository) : ViewModel(
             }, {
                 onFailure()
             })
+        }
+    }
+
+
+    // billing and payments
+
+    fun getAllPaymentsForUser(userId: String, onSuccess: (List<Payment>) -> Unit, onFailure: (Throwable) -> Unit) {
+        viewModelScope.launch {
+            repository.getAllPaymentsForUser(userId).onSuccess { payments ->
+                _userPayments.value=payments
+                onSuccess(payments)
+            }.onFailure { exception ->
+                onFailure(exception)
+            }
+        }
+    }
+    fun recordPayment(payment: Payment, onSuccess: (String) -> Unit, onFailure: (Throwable) -> Unit) {
+        viewModelScope.launch {
+            repository.recordPayment(payment).onSuccess { paymentId ->
+                _recordPaymentStatus.value = Result.success(paymentId)
+                onSuccess(paymentId)
+            }.onFailure { exception ->
+                _recordPaymentStatus.value = Result.failure(exception)
+                onFailure(exception)
+            }
         }
     }
 }

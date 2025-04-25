@@ -15,7 +15,10 @@ import com.example.admin.presentation.FireBaseViewModel
 import com.example.admin.presentation.screens.CustomerDetailScreen
 import com.example.admin.presentation.screens.OrderScreen
 import com.example.admin.presentation.screens.PaymentScreen
+import com.example.admin.presentation.ui.AddCustomerScreen
 import com.example.admin.presentation.ui.LoginScreen
+import com.example.admin.presentation.ui.NewOrderScreen
+import com.example.admin.presentation.ui.ProfileScreen
 import com.example.admin.presentation.ui.route
 import com.google.firebase.auth.FirebaseAuth
 import org.koin.androidx.compose.koinViewModel
@@ -70,6 +73,14 @@ DashboardScreen(navHostController,viewModel)
 
         composable<route.paymentScreen> {
             PaymentScreen(viewModel,navHostController)
+        }
+
+        composable<route.profileScreen> {
+            ProfileScreen(navHostController,viewModel)
+        }
+
+        composable<route.addCustomerScreen> {
+            AddCustomerScreen(navHostController,viewModel)
         }
 
     }

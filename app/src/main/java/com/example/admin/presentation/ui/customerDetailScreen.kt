@@ -9,7 +9,6 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,10 +29,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -55,7 +56,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
@@ -65,21 +65,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.admin.R
 import com.example.admin.presentation.FireBaseViewModel
+import com.google.firebase.Timestamp
+import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.Month
-import java.time.Year
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-import com.google.firebase.Timestamp
+import java.util.Date
 import java.util.Locale
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -88,38 +84,40 @@ import java.util.Locale
 fun CustomerDetailScreen(
     userId: String?,
     viewModel: FireBaseViewModel,
-
-    ) {
+) {
     val user by viewModel.user.collectAsState()
     LaunchedEffect(userId) {
         if (!userId.isNullOrEmpty()) {
             viewModel.updateCurrentUser(userId)
-
         }
-
     }
-    Log.d("user0," ,"${user}")
+    Log.d("user0,", "${user}")
 
     var showEditDialog by remember { mutableStateOf(false) }
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     var editedUser by remember { mutableStateOf(user ?: User()) }
     val ordersByMonth by viewModel.getOrdersByMonth.observeAsState(emptyList())
-    LaunchedEffect(Unit) {
+    val payments by viewModel.userPayments.collectAsState()
+
+    LaunchedEffect(userId) {
         viewModel.getOrdersByMonth(
             userId ?: "",
             selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM")),
             {},
             {}
         )
-    }
+        if (!userId.isNullOrEmpty()) {
+            viewModel.getAllPaymentsForUser(userId, {}, {})
+        }
 
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Customer Profile", style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
-                    IconButton(onClick = {}) {
+                    IconButton(onClick = { /* Handle navigation back */ }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
@@ -136,13 +134,11 @@ fun CustomerDetailScreen(
         }
     ) { innerPadding ->
         user?.let {
-
             CustomerDetailContent(
                 modifier = Modifier.padding(innerPadding),
                 customer = it,
                 onDateSelected = { newDate ->
                     selectedDate = newDate
-                    // Correctly format the yearMonth string
                     val yearMonth = newDate.format(
                         DateTimeFormatter.ofPattern(
                             "yyyy-MM",
@@ -151,37 +147,32 @@ fun CustomerDetailScreen(
                     )
                     viewModel.getOrdersByMonth(
                         userId = userId!!,
-                        yearMonth = yearMonth, // Pass the formatted yearMonth
+                        yearMonth = yearMonth,
                         onSuccess = {},
                         onFailure = {}
                     )
-
                 },
                 ordersByMonth = ordersByMonth,
                 viewModel = viewModel,
-                userId = userId
+                userId = userId,
+                payments = payments
             )
         }
     }
 
     if (showEditDialog) {
-        Log.d("wihoutupdateduser00," ,"${editedUser}")
+        Log.d("wihoutupdateduser00,", "${editedUser}")
         EditCustomerDialog(
-
-            editedUser = user?: User(),
+            editedUser = user ?: User(),
             onUserChange = { editedUser = it },
             onDismiss = { showEditDialog = false },
             onSave = {
-                Log.d("updateduser00," ,"${editedUser}")
-                        viewModel.updateUser(editedUser,{},{})
-                      showEditDialog=false;
-                viewModel.updateCurrentUser(userId?:"")
-
-                    },
-
-                )
-
-
+                Log.d("updateduser00,", "${editedUser}")
+                viewModel.updateUser(editedUser, {}, {})
+                showEditDialog = false
+                viewModel.updateCurrentUser(userId ?: "")
+            },
+        )
     }
 }
 
@@ -193,9 +184,9 @@ fun CustomerDetailContent(
     onDateSelected: (LocalDate) -> Unit,
     ordersByMonth: List<Order>,
     viewModel: FireBaseViewModel,
-    userId: String?
+    userId: String?,
+    payments: List<Payment>
 ) {
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -208,6 +199,10 @@ fun CustomerDetailContent(
 
         OutstandingPaymentSection(customer)
 
+        Spacer(modifier = Modifier.height(16.dp))
+
+        PriceDetailSection(customer)
+
         Spacer(modifier = Modifier.height(24.dp))
 
         ActionButtonsSection()
@@ -218,7 +213,7 @@ fun CustomerDetailContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        PaymentHistorySection()
+        PaymentHistorySection(payments)
     }
 }
 
@@ -228,9 +223,7 @@ fun CustomerInfoSection(customer: User) {
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-
         Spacer(modifier = Modifier.width(16.dp))
-
         Column {
             Text(text = customer.name ?: "", fontWeight = FontWeight.Bold, fontSize = 20.sp)
             Spacer(modifier = Modifier.height(4.dp))
@@ -245,13 +238,69 @@ fun CustomerInfoSection(customer: User) {
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(text = customer.email ?: "", color = Color.Gray, fontSize = 14.sp)
             }
-
             Spacer(modifier = Modifier.height(2.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Info, "address", modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(text = customer.address ?: "", color = Color.Gray, fontSize = 14.sp)
             }
+            Spacer(modifier = Modifier.height(2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Star, "address", modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(text = "Deposited Money : ${customer.depositMoney ?: ""}", color = Color.Gray, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun PriceDetailSection(customer: User) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFE0F7FA), RoundedCornerShape(8.dp))
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "Price Detail",
+            color = Color(0xFF00838F),
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Edit, "Normal Water", modifier = Modifier.size(20.dp), tint = Color.Gray)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(text = "Normal Water:", color = Color.Gray, fontSize = 14.sp)
+            }
+            Text(
+                text = String.format("₹%.2f", customer.regularWaterPrice ?: 0.0),
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Edit, "Cold Water", modifier = Modifier.size(20.dp), tint = Color.Gray)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(text = "Cold Water:", color = Color.Gray, fontSize = 14.sp)
+            }
+            Text(
+                text = String.format("₹%.2f", customer.coldWaterPrice ?: 0.0),
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
         }
     }
 }
@@ -307,8 +356,7 @@ fun ActionButtonsSection() {
 fun OrderHistorySection(
     onDateSelected: (LocalDate) -> Unit,
     orders: List<Order>,
-
-    ) {
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(text = "Order History", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         Spacer(modifier = Modifier.height(16.dp))
@@ -318,7 +366,6 @@ fun OrderHistorySection(
 
         if (orders.isEmpty()) {
             Text(text = "No orders for selected period")
-
         } else {
             LazyColumn(modifier = Modifier.height(250.dp)) {
                 items(orders) { order ->
@@ -349,7 +396,7 @@ fun OrderItem(order: Order) {
                     text = formattedDate,
                     fontWeight = FontWeight.Bold
                 )
-                Text(text = "₹{order.items ?: 0} items", color = Color.Gray)
+                Text(text =  "Normal: ${order.normalWaterQuantity ?: 0} | Cold: ${order.coldWaterQuantity ?: 0}", color = Color.Gray)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -392,33 +439,30 @@ fun OrderStatusIndicator(status: String) {
 }
 
 @Composable
-fun PaymentHistorySection() {
+fun PaymentHistorySection(payments: List<Payment>) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(text = "Payment History", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         Spacer(modifier = Modifier.height(16.dp))
 
-        val payments = listOf(
-            PaymentHistoryItem("Feb 28, 2024", 450.00, PaymentMethod.CreditCard),
-            PaymentHistoryItem("Feb 15, 2024", 850.00, PaymentMethod.Cash),
-            PaymentHistoryItem("Feb 02, 2024", 320.00, PaymentMethod.UPI)
-        )
-
-        LazyColumn(modifier = Modifier.height(250.dp)) {
-            items(payments) { payment ->
-                PaymentItem(payment)
+        if (payments.isEmpty()) {
+            Text("No Payment Found")
+        } else {
+            LazyColumn(modifier = Modifier.height(250.dp)) {
+                items(payments) { payment ->
+                    PaymentItem(payment)
+                }
             }
         }
+
     }
 }
 
-data class PaymentHistoryItem(val date: String, val amount: Double, val method: PaymentMethod)
-
-enum class PaymentMethod {
-    CreditCard, Cash, UPI
-}
 
 @Composable
-fun PaymentItem(payment: PaymentHistoryItem) {
+fun PaymentItem(payment: Payment) {
+    val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+    val formattedDate =
+        payment.paymentDate?.toDate()?.let { dateFormat.format(it) } ?: "Unknown Date"
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -426,10 +470,10 @@ fun PaymentItem(payment: PaymentHistoryItem) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text(text = payment.date, fontWeight = FontWeight.Bold)
-                Text(text = payment.method.name, color = Color.Gray)
+                Text(text = formattedDate, fontWeight = FontWeight.Bold)
+                Text(text = payment.paymentMethod ?: "Unknown", color = Color.Gray)
             }
-            Text(text = String.format("₹%.2f", payment.amount), fontWeight = FontWeight.Bold)
+            Text(text = String.format("₹%.2f", payment.paymentAmount ?: 0.0), fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(16.dp))
         Divider()
@@ -498,12 +542,16 @@ fun EditCustomerDialog(
     onDismiss: () -> Unit,
     onSave: () -> Unit
 ) {
-    Log.d("user00," ,"₹{editedUser}")
+    Log.d("user00,", "₹{editedUser}")
 
     var name by remember { mutableStateOf(editedUser.name ?: "") }
     var contactInfo by remember { mutableStateOf(editedUser.contactInfo ?: "") }
     var address by remember { mutableStateOf(editedUser.address ?: "") }
+    var email by remember { mutableStateOf(editedUser.email ?: "") }
     var initial by remember { mutableStateOf(editedUser.initial ?: "") }
+    var depositMoney by remember { mutableStateOf(editedUser.depositMoney?.toString() ?: "") }
+    var normalWaterPrice by remember { mutableStateOf(editedUser.regularWaterPrice?.toString() ?: "") }
+    var coldWaterPrice by remember { mutableStateOf(editedUser.coldWaterPrice?.toString() ?: "") }
 
 
     AlertDialog(
@@ -518,6 +566,17 @@ fun EditCustomerDialog(
                         onUserChange(editedUser.copy(name = it))
                     },
                     label = { Text("Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Blue)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = {
+                        email = it
+                        onUserChange(editedUser.copy(email = it))
+                    },
+                    label = { Text("Email") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Blue)
                 )
@@ -551,6 +610,39 @@ fun EditCustomerDialog(
                         onUserChange(editedUser.copy(address = it))
                     },
                     label = { Text("Address") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Blue)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = depositMoney,
+                    onValueChange = {
+                        depositMoney = it
+                        onUserChange(editedUser.copy(depositMoney = it.toDoubleOrNull()))
+                    },
+                    label = { Text("Deposit Money") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Blue)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = normalWaterPrice,
+                    onValueChange = {
+                        normalWaterPrice = it
+                        onUserChange(editedUser.copy(regularWaterPrice = it.toDoubleOrNull()))
+                    },
+                    label = { Text("Normal Water Price") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Blue)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = coldWaterPrice,
+                    onValueChange = {
+                        coldWaterPrice = it
+                        onUserChange(editedUser.copy(coldWaterPrice = it.toDoubleOrNull()))
+                    },
+                    label = { Text("Cold Water Price") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Blue)
                 )

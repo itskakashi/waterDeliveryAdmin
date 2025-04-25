@@ -29,6 +29,12 @@ sealed class route(){
     data object paymentScreen: route()
 
 
+    @Serializable
+    data object profileScreen: route()
+
+
+    @Serializable
+    data object addCustomerScreen: route()
 
 }
 

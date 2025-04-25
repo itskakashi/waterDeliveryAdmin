@@ -10,6 +10,7 @@ import kotlinx.coroutines.tasks.await
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.Date
+import kotlin.text.get
 
 class BillingAndPaymentManager {
     private val fireStore: FirebaseFirestore = FirebaseFirestore.getInstance()
@@ -221,5 +222,19 @@ class BillingAndPaymentManager {
 
     fun getCurrentUserId(): String? {
         return auth.currentUser?.uid
+    }
+
+
+    suspend fun getAllPaymentsForUser(userId: String): Result<List<Payment>> {
+        return try {
+            val snapshot = paymentsCollection
+                .whereEqualTo("userId", usersCollection.document(userId))
+                .get()
+                .await()
+            val payments = snapshot.toObjects(Payment::class.java)
+            Result.success(payments)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

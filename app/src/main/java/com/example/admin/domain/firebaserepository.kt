@@ -56,6 +56,9 @@ class FireBaseRepository(
      suspend fun addCustomer(user: User, password: String): Result<String> {
          return UserManager.addCustomer(user, password)
      }
+      suspend fun addCustomerWithoutAuth(user: User): Result<String> {
+          return UserManager.addCustomerWithoutAuth(user)
+      }
      suspend fun deleteUser(userId: String): Result<Unit> {
          return UserManager.deleteUser(userId)
      }
@@ -158,6 +161,9 @@ class FireBaseRepository(
 
       suspend fun getAllPayments(): Result<List<Payment>> {
           return BillingAndPaymentManager.getAllPayments()
+      }
+      suspend fun getAllPaymentsForUser(userId: String): Result<List<Payment>> {
+          return BillingAndPaymentManager.getAllPaymentsForUser(userId)
       }
       //get current user id
       fun getCurrentUserId(): String? {
