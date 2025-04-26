@@ -1,8 +1,7 @@
 package com.example.admin
 
 
-import CustomersScreen
-import NewOrderScreen
+
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
