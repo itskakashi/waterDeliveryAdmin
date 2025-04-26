@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.example.admin.presentation.FireBaseViewModel
 import com.google.firebase.Timestamp
 import java.text.SimpleDateFormat
@@ -84,6 +85,7 @@ import java.util.Locale
 fun CustomerDetailScreen(
     userId: String?,
     viewModel: FireBaseViewModel,
+    navController: NavController
 ) {
     val user by viewModel.user.collectAsState()
     LaunchedEffect(userId) {
@@ -109,7 +111,6 @@ fun CustomerDetailScreen(
         if (!userId.isNullOrEmpty()) {
             viewModel.getAllPaymentsForUser(userId, {}, {})
         }
-
     }
 
     Scaffold(
@@ -117,7 +118,7 @@ fun CustomerDetailScreen(
             TopAppBar(
                 title = { Text("Customer Profile", style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
-                    IconButton(onClick = { /* Handle navigation back */ }) {
+                    IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
@@ -233,12 +234,15 @@ fun CustomerInfoSection(customer: User) {
                 Text(text = customer.contactInfo ?: "", color = Color.Gray, fontSize = 14.sp)
             }
             Spacer(modifier = Modifier.height(2.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Email, "Email", modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(text = customer.email ?: "", color = Color.Gray, fontSize = 14.sp)
+            // Display email only if available
+            if (!customer.email.isNullOrEmpty()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Email, "Email", modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = customer.email ?: "", color = Color.Gray, fontSize = 14.sp)
+                }
+                Spacer(modifier = Modifier.height(2.dp))
             }
-            Spacer(modifier = Modifier.height(2.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Info, "address", modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
@@ -248,7 +252,21 @@ fun CustomerInfoSection(customer: User) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Star, "address", modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(text = "Deposited Money : ${customer.depositMoney ?: ""}", color = Color.Gray, fontSize = 14.sp)
+                Text(
+                    text = "Deposited Money : ${customer.depositMoney ?: ""}",
+                    color = Color.Gray,
+                    fontSize = 14.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Star, "canes", modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Canes Taken : ${customer.canesTaken ?: 0}",
+                    color = Color.Gray,
+                    fontSize = 14.sp
+                )
             }
         }
     }
@@ -275,7 +293,12 @@ fun PriceDetailSection(customer: User) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Edit, "Normal Water", modifier = Modifier.size(20.dp), tint = Color.Gray)
+                Icon(
+                    Icons.Filled.Edit,
+                    "Normal Water",
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.Gray
+                )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(text = "Normal Water:", color = Color.Gray, fontSize = 14.sp)
             }
@@ -292,7 +315,12 @@ fun PriceDetailSection(customer: User) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Edit, "Cold Water", modifier = Modifier.size(20.dp), tint = Color.Gray)
+                Icon(
+                    Icons.Filled.Edit,
+                    "Cold Water",
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.Gray
+                )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(text = "Cold Water:", color = Color.Gray, fontSize = 14.sp)
             }
@@ -320,7 +348,11 @@ fun OutstandingPaymentSection(customer: User) {
             fontSize = 16.sp
         )
         Spacer(modifier = Modifier.height(8.dp))
-        Text(text = String.format("₹%.2f", customer.amount), fontWeight = FontWeight.Bold, fontSize = 24.sp)
+        Text(
+            text = String.format("₹%.2f", customer.amount),
+            fontWeight = FontWeight.Bold,
+            fontSize = 24.sp
+        )
         Spacer(modifier = Modifier.height(16.dp))
         Button(
             onClick = { /* Handle mark as paid action */ },
@@ -396,7 +428,10 @@ fun OrderItem(order: Order) {
                     text = formattedDate,
                     fontWeight = FontWeight.Bold
                 )
-                Text(text =  "Normal: ${order.normalWaterQuantity ?: 0} | Cold: ${order.coldWaterQuantity ?: 0}", color = Color.Gray)
+                Text(
+                    text = "Normal: ${order.normalWaterQuantity ?: 0} | Cold: ${order.coldWaterQuantity ?: 0}",
+                    color = Color.Gray
+                )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -453,10 +488,8 @@ fun PaymentHistorySection(payments: List<Payment>) {
                 }
             }
         }
-
     }
 }
-
 
 @Composable
 fun PaymentItem(payment: Payment) {
@@ -473,7 +506,10 @@ fun PaymentItem(payment: Payment) {
                 Text(text = formattedDate, fontWeight = FontWeight.Bold)
                 Text(text = payment.paymentMethod ?: "Unknown", color = Color.Gray)
             }
-            Text(text = String.format("₹%.2f", payment.paymentAmount ?: 0.0), fontWeight = FontWeight.Bold)
+            Text(
+                text = String.format("₹%.2f", payment.paymentAmount ?: 0.0),
+                fontWeight = FontWeight.Bold
+            )
         }
         Spacer(modifier = Modifier.height(16.dp))
         Divider()
@@ -552,7 +588,7 @@ fun EditCustomerDialog(
     var depositMoney by remember { mutableStateOf(editedUser.depositMoney?.toString() ?: "") }
     var normalWaterPrice by remember { mutableStateOf(editedUser.regularWaterPrice?.toString() ?: "") }
     var coldWaterPrice by remember { mutableStateOf(editedUser.coldWaterPrice?.toString() ?: "") }
-
+    var canesTaken by remember { mutableStateOf(editedUser.canesTaken?.toString() ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -643,6 +679,17 @@ fun EditCustomerDialog(
                         onUserChange(editedUser.copy(coldWaterPrice = it.toDoubleOrNull()))
                     },
                     label = { Text("Cold Water Price") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Blue)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = canesTaken,
+                    onValueChange = {
+                        canesTaken = it
+                        onUserChange(editedUser.copy(canesTaken = it.toIntOrNull()))
+                    },
+                    label = { Text("Canes Taken") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Blue)
                 )

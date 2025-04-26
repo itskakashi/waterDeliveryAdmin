@@ -129,9 +129,9 @@ fun AddCustomerScreen(navController: NavController, viewModel: FireBaseViewModel
                     contactInfo = phoneNumber.text,
                     email = if(emailAddress.text.isNullOrEmpty())null else emailAddress.text,
                     address = address.text,
-                    depositMoney = depositedMoney.text.toDoubleOrNull() ?: 0.0,
-                    regularWaterPrice = normalWaterPrice.text.toDoubleOrNull() ?: 0.0,
-                    coldWaterPrice=coldWaterPrice.text.toDoubleOrNull() ?: 0.0,
+                    depositMoney = depositedMoney.text.toDouble(),
+                    regularWaterPrice = normalWaterPrice.text.toDouble(),
+                    coldWaterPrice=coldWaterPrice.text.toDouble(),
                 )
                 viewModel.addCustomerWithoutAuth(
                     user = newUser,
@@ -247,9 +247,9 @@ fun AddCustomerScreen(navController: NavController, viewModel: FireBaseViewModel
                 InputField(
                     value = depositedMoney,
                     onValueChange = { depositedMoney = it },
-                    label = "Deposited Money (optional)",
+                    label = "Deposited Money",
                     icon = Icons.Filled.Star,
-                    isRequired = false,
+                    isRequired = true,
                     errorMessage = depositedMoneyError,
                     keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number)
                 )
@@ -260,7 +260,7 @@ fun AddCustomerScreen(navController: NavController, viewModel: FireBaseViewModel
                     onValueChange = { normalWaterPrice = it },
                     label = "Normal Water Price",
                     icon = Icons.Filled.Edit,
-                    isRequired = false,
+                    isRequired = true,
                     errorMessage = normalWaterPriceError,
                     keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number)
                 )
@@ -272,7 +272,7 @@ fun AddCustomerScreen(navController: NavController, viewModel: FireBaseViewModel
                     onValueChange = { coldWaterPrice = it },
                     label = "Cold Water Price",
                     icon = Icons.Filled.Edit,
-                    isRequired = false,
+                    isRequired = true,
                     errorMessage = coldWaterPriceError,
                     keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number)
                 )
@@ -312,13 +312,22 @@ fun AddCustomerScreen(navController: NavController, viewModel: FireBaseViewModel
                             if (address.text.isBlank()) {
                                 addressError = "Address is required"
                             }
-                            if(depositedMoney.text.isNotBlank() && depositedMoney.text.toDoubleOrNull() == null) {
+                            if(depositedMoney.text.isBlank()) {
+                                depositedMoneyError = "Deposited Money is required"
+                            }
+                            else if(depositedMoney.text.isNotBlank() && depositedMoney.text.toDoubleOrNull() == null) {
                                 depositedMoneyError = "Invalid amount"
                             }
-                            if(normalWaterPrice.text.isNotBlank() && normalWaterPrice.text.toDoubleOrNull() == null) {
+                            if(normalWaterPrice.text.isBlank()) {
+                                normalWaterPriceError = "Normal water price is required"
+                            }
+                            else if(normalWaterPrice.text.isNotBlank() && normalWaterPrice.text.toDoubleOrNull() == null) {
                                 normalWaterPriceError = "Invalid amount"
                             }
-                            if(coldWaterPrice.text.isNotBlank() && coldWaterPrice.text.toDoubleOrNull() == null) {
+                            if(coldWaterPrice.text.isBlank()) {
+                                coldWaterPriceError = "Cold water price is required"
+                            }
+                            else if(coldWaterPrice.text.isNotBlank() && coldWaterPrice.text.toDoubleOrNull() == null) {
                                 coldWaterPriceError = "Invalid amount"
                             }
                             if (customerNameError != null || phoneNumberError != null || addressError != null || depositedMoneyError != null|| normalWaterPriceError != null||coldWaterPriceError!=null) {
@@ -443,17 +452,13 @@ fun ConfirmationDialog(
                     Text("Email: $emailAddress")
                 }
                 Text("Address: $address")
+                Text("Deposited Money: $depositedMoney")
+
+                Text("Normal water price : $normalWaterPrice")
+
+                Text("Cold water price : $coldWaterPrice")
                 if (notes.isNotBlank()) {
                     Text("Notes: $notes")
-                }
-                if (depositedMoney.isNotBlank()){
-                    Text("Deposited Money: $depositedMoney")
-                }
-                if (normalWaterPrice.isNotBlank()){
-                    Text("Normal water price : $normalWaterPrice")
-                }
-                if (coldWaterPrice.isNotBlank()){
-                    Text("Cold water price : $coldWaterPrice")
                 }
             }
         },

@@ -3,6 +3,9 @@ package com.example.admin.presentation.ui
 import androidx.compose.ui.graphics.Color
 
 
+import androidx.navigation.NavController
+
+
 class MyColor(){
     companion object{
         val lightBlue = Color(0xFFB5E5FF)
@@ -28,3 +31,6 @@ class MyColor(){
 
     }
 }
+
+
+

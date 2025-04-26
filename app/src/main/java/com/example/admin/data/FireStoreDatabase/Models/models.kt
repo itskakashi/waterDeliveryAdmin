@@ -36,8 +36,8 @@ data class User(
     var regularWaterPrice: Double? = 30.0,
     var isOpen: Boolean? = null,
     var depositMoney: Double? = null,
-    var canesTaken: Int? = null,
-    var canesReturned: Int? = null,
+    var canesTaken: Int? = 0,
+    var canesReturned: Int? = 0,
     var orders: List<DocumentReference> = emptyList(),
     var userId: String? = null,
 )

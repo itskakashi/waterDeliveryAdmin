@@ -70,10 +70,12 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TextButton
 import androidx.navigation.NavController
+import com.example.admin.presentation.ui.route
 import com.google.firebase.Firebase
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
+import selectedItem
 import java.time.Instant
 import java.time.ZoneOffset
 
@@ -108,7 +110,10 @@ fun OrderScreen(navController: NavController,viewModel: FireBaseViewModel) {
                     Text(text = "Orders", style = MaterialTheme.typography.headlineMedium)
                 },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = {
+                        navController.popBackStack(route.dashBoardScreen,false)
+                        selectedItem=0
+                    }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                             contentDescription = "Back"
@@ -435,34 +440,27 @@ fun orderItem(order: Order, viewModel: FireBaseViewModel,selectedDate: LocalDate
                                         viewModel.getAllUsersOrdersByCustomDate(selectedDate!!,{},{})
                                     }
 
-                                    val testBill = Bill(
 
-                                        userId = order.userID,
-                                        amount = order.totalAmount,
-                                        totalJars = order.quantity,
-                                        billDate = Timestamp(java.util.Date()),
-                                        paymentStatus = "UnPaid",
-                                        isPaid = true,
-                                        orderId = db.collection("orders").document(order.orderId ?: ""),
-
-                                        )
-
-                                    viewModel.createBill(testBill,
-                                        onSuccess = {
-                                            Log.d("billGenerated", " bill is created successfully ${it.toString()}")
-
-                                        },
-                                        onFailure = { e ->
-                                            Log.d("billGeneratedFailed", " bill is created Unsuccessfully ${e.toString()}")
-
-                                        })
 
                                     viewModel.updateAmount(order.userID!!, order.totalAmount ?: 0.0, true, {
                                         Log.d("amountUpdated", "amount is updated successfully ")
                                     }, {
                                         Log.d("amountUpdated", "amount is updated Unsuccessfully ")
                                     })
-
+                                    // Assuming you have an instance of FireBaseViewModel called 'viewModel'
+                                    viewModel.updateCanesTaken(
+                                        userRef = order.userID!!,
+                                        canesToAdd = (order.coldWaterQuantity!!+order.normalWaterQuantity!!),
+                                        canesToSubtract = order.canesReturning?:0,
+                                        onSuccess = {
+                                            // Handle successful update (e.g., show a success message)
+                                            Log.d("ViewModelUpdate", "canes update successful")
+                                        },
+                                        onFailure = { error ->
+                                            // Handle failure (e.g., show an error message)
+                                            Log.e("ViewModelUpdate", "Failed to update canes: ${error.message}")
+                                        }
+                                    )
 
 
 

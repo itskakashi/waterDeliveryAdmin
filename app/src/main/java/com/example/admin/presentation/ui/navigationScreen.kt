@@ -64,6 +64,7 @@ DashboardScreen(navHostController,viewModel)
             CustomerDetailScreen(
                 userId,
                 viewModel = viewModel,
+                navHostController
 
             )
         }

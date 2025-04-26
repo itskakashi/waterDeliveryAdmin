@@ -189,6 +189,9 @@ class FireBaseRepository(
      }
 
 
+      suspend fun updateCanesTaken(userRef: DocumentReference, canesToAdd: Int, canesToSubtract: Int): Result<Unit> {
+          return CanesManager.updateCanesTaken(userRef, canesToAdd,canesToSubtract)
+      }
 
 
 

@@ -5,6 +5,7 @@ import Analytics
 import Bill
 import Order
 import Payment
+import androidx.compose.material.icons.filled.Clear
 import User
 import android.os.Build
 import android.util.Log
@@ -110,7 +111,6 @@ fun NewOrderScreen(navController: NavController, viewModel: FireBaseViewModel) {
     }
 
 
-    // Function to handle order confirmation
     fun confirmOrder() {
 
         if (selectedCustomer != null && selectedDate != null && (selectedNormalJarQuantity > 0 || selectedColdJarQuantity > 0)) {
@@ -134,39 +134,64 @@ fun NewOrderScreen(navController: NavController, viewModel: FireBaseViewModel) {
                 Toast.makeText(context, "your order is successful $orderId", Toast.LENGTH_SHORT).show()
                 Log.d("order", "order created successful ${orderId.toString()}")
                 val db: FirebaseFirestore = Firebase.firestore
-
+                val userRef = db.collection("users").document(selectedCustomer!!.userId!!)
 
                 if (isMarkedAsDelivered) {
-                    val testBill = Bill(
-                        userId = db.collection("users").document(selectedCustomer!!.userId ?: ""),
-                        amount = totalPrice.toDouble(),
-                        totalJars = selectedColdJarQuantity + selectedNormalJarQuantity,
-                        billDate = Timestamp(java.util.Date()),
-                        paymentStatus = if (isMarkedAsPaid == true) "Paid" else "UnPaid",
-                        isPaid = isMarkedAsPaid,
-                        orderId = db.collection("orders").document(orderId),
-
-                        )
-
-                    viewModel.createBill(
-                        testBill,
-                        onSuccess = {
-                            Log.d("billGenerated", " bill is created successfully ${it.toString()}")
-
-                        },
-                        onFailure = { e ->
-                            Log.d("billGeneratedFailed", " bill is created Unsuccessfully ${e.toString()}")
-
-                        })
                     if (!isMarkedAsPaid) {
                         selectedCustomer?.let { customer ->
-                            val newAmount = customer.amount?.plus(totalPrice.toDouble()) ?: totalPrice.toDouble()
-                            viewModel.updateUser(customer.copy(amount = newAmount), {
-                                Log.d("UpdatedSuccessfully", " bill amount is successfully updated $")
-                            }, {
-                                Log.d("UpdatedUNSuccessfully", " bill amount is UNsuccessfully updated ${it.message.toString()}")
-                            })
+                            val newAmount = customer.amount?.plus(totalPrice.toDouble())
+                                ?: totalPrice.toDouble()
+                            val cantaken = customer.canesTaken?.plus((selectedNormalJarQuantity + selectedColdJarQuantity).minus(returnCanCount))
+
+                            viewModel.updateUser(
+                                customer.copy(
+                                    amount = newAmount,
+                                    canesTaken = cantaken
+                                ), {
+                                    Log.d(
+                                        "UpdatedSuccessfully",
+                                        " bill amount is successfully updated $"
+                                    )
+                                }, {
+                                    Log.d(
+                                        "UpdatedUNSuccessfully",
+                                        " bill amount is UNsuccessfully updated ${it.message.toString()}"
+                                    )
+                                })
                         }
+                    } else {
+                        // Create a payment receipt
+                          Log.d("zzzzzz"," zzzzzzzz")
+                        selectedCustomer?.let { customer ->
+
+                            val cantaken = customer.canesTaken?.plus((selectedNormalJarQuantity + selectedColdJarQuantity).minus(returnCanCount))
+
+                            viewModel.updateUser(
+                                customer.copy(
+                                    canesTaken = cantaken
+                                ), {
+                                    Log.d(
+                                        "UpdatedSuccessfully",
+                                        " bill amount is successfully updated $"
+                                    )
+                                }, {
+                                    Log.d(
+                                        "UpdatedUNSuccessfully",
+                                        " bill amount is UNsuccessfully updated ${it.message.toString()}"
+                                    )
+                                })
+                        }
+
+                        val payment = Payment(
+                            userId = userRef,
+                            paymentAmount = totalPrice.toDouble(),
+                            paymentDate = Timestamp.now(),
+                            paymentMethod = "Cash", // You can change the payment method
+
+
+                        )
+                        // Add payment to payments collection
+                        viewModel.recordPayment(payment, {}, {})
                     }
                     navController.popBackStack()
 
@@ -257,7 +282,8 @@ fun NewOrderScreen(navController: NavController, viewModel: FireBaseViewModel) {
             Spacer(modifier = Modifier.height(24.dp))
             MarkAsPaymentCheckbox(
                 isChecked = isMarkedAsPaid,
-                onCheckedChange = { isMarkedAsPaid = it }
+                onCheckedChange = { isMarkedAsPaid = it },
+                isEnabled = isMarkedAsDelivered
             )
             Spacer(modifier = Modifier.height(24.dp))
             Column(
@@ -427,6 +453,9 @@ fun StandardDeliveryButton() {
     }
 }
 
+
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomerDropdown(allUsers: List<User>, onCustomerSelected: (User) -> Unit) {
@@ -466,8 +495,7 @@ fun CustomerDropdown(allUsers: List<User>, onCustomerSelected: (User) -> Unit) {
                 value = selectedCustomer?.name ?: "Select a customer",
                 onValueChange = { },
                 readOnly = true,
-                modifier = Modifier
-                    .fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 interactionSource = interactionSource,
                 trailingIcon = {
                     Icon(
@@ -500,7 +528,6 @@ fun CustomerDropdown(allUsers: List<User>, onCustomerSelected: (User) -> Unit) {
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
                 modifier = Modifier.fillMaxWidth()
-
             ) {
                 OutlinedTextField(
                     value = searchQuery,
@@ -509,13 +536,26 @@ fun CustomerDropdown(allUsers: List<User>, onCustomerSelected: (User) -> Unit) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(8.dp),
-                    placeholder = { Text("Search by name or address") }
+                    placeholder = { Text("Search by name or address") },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = {
+                                searchQuery = "" // Clear the search query
+                                expanded = false // Collapse the dropdown
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Clear,
+                                    contentDescription = "Clear Search",
+                                    tint = Color.Gray
+                                )
+                            }
+                        }
+                    }
                 )
 
                 if (filteredUsers.isEmpty()) {
-                    DropdownMenuItem(text = { Text("No results found") }, onClick = {})
+                    DropdownMenuItem(text = { Text("No results found") }, onClick = { })
                 } else {
-
                     filteredUsers.forEach { customer ->
                         DropdownMenuItem(
                             text = {
@@ -833,7 +873,10 @@ fun DatePickerFieldd(onDateSelected: (Date) -> Unit) {
 }
 
 @Composable
-fun MarkAsDeliveredCheckbox(isChecked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+fun MarkAsDeliveredCheckbox(
+    isChecked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
     Column(
         horizontalAlignment = Alignment.Start,
         modifier = Modifier.background(Color(0xFFE5E7EB), shape = RoundedCornerShape(10.dp))
@@ -844,7 +887,10 @@ fun MarkAsDeliveredCheckbox(isChecked: Boolean, onCheckedChange: (Boolean) -> Un
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Checkbox(checked = isChecked, onCheckedChange = onCheckedChange)
+            Checkbox(
+                checked = isChecked,
+                onCheckedChange = onCheckedChange
+            )
             Spacer(modifier = Modifier.width(8.dp))
             Column {
                 Text(text = "Mark as Delivered", color = Color.Black)
@@ -877,7 +923,11 @@ fun MarkAsDeliveredCheckbox(isChecked: Boolean, onCheckedChange: (Boolean) -> Un
 
 
 @Composable
-fun MarkAsPaymentCheckbox(isChecked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+fun MarkAsPaymentCheckbox(
+    isChecked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    isEnabled: Boolean // Add this parameter
+) {
     Column(
         horizontalAlignment = Alignment.Start,
         modifier = Modifier.background(Color(0xFFE5E7EB), shape = RoundedCornerShape(10.dp))
@@ -888,7 +938,11 @@ fun MarkAsPaymentCheckbox(isChecked: Boolean, onCheckedChange: (Boolean) -> Unit
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Checkbox(checked = isChecked, onCheckedChange = onCheckedChange)
+            Checkbox(
+                checked = isChecked,
+                onCheckedChange = if (isEnabled) onCheckedChange else null, //Conditionally set onCheckedChange
+                enabled = isEnabled // Conditionally enable/disable the checkbox
+            )
             Spacer(modifier = Modifier.width(8.dp))
             Column {
                 Text(text = "Mark as Payment Completed", color = Color.Black)

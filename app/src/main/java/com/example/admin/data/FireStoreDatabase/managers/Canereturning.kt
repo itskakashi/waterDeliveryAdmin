@@ -3,6 +3,7 @@
 
 
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ktx.firestore
@@ -38,4 +39,18 @@ class CanesManager {
             Result.failure(e)
         }
     }
+    suspend fun updateCanesTaken(userRef: DocumentReference, canesToAdd: Int, canesToSubtract: Int): Result<Unit> {
+        return try {
+            val totalChange = canesToAdd - canesToSubtract // Calculate the net change
+
+            if (totalChange != 0) { // Only update if there's a net change
+                userRef.update("canesTaken", FieldValue.increment(totalChange.toLong())).await()
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
 }

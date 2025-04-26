@@ -724,4 +724,14 @@ class FireBaseViewModel(private val repository: FireBaseRepository) : ViewModel(
             }
         }
     }
+
+    fun updateCanesTaken(userRef: DocumentReference, canesToAdd: Int, canesToSubtract: Int, onSuccess: () -> Unit, onFailure: (Throwable) -> Unit) {
+        viewModelScope.launch {
+            repository.updateCanesTaken(userRef, canesToAdd, canesToSubtract).onSuccess {
+                onSuccess()
+            }.onFailure { exception ->
+                onFailure(exception)
+            }
+        }
+    }
 }

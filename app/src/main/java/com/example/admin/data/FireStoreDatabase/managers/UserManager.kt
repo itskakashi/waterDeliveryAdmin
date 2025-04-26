@@ -154,6 +154,7 @@ class UserManager {
         }
     }
 
+
     suspend fun addCustomerWithoutAuth(user: User): Result<String> {
         return try {
             // First, check if a user with the same mobile number or email already exists

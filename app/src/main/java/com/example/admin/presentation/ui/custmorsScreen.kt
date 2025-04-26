@@ -94,10 +94,10 @@ data class Customer(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomersScreen(navController: NavController) {
-   val  viewModel= koinViewModel <FireBaseViewModel>()
+    val viewModel = koinViewModel<FireBaseViewModel>()
     // Observe LiveData from ViewModel
     val allUsersState by viewModel.allUsers.collectAsState()
-    Log.d("all Users original" ,"$allUsersState")
+    Log.d("all Users original", "$allUsersState")
 
 
     LaunchedEffect(key1 = true) {
@@ -147,7 +147,7 @@ fun CustomersScreen(navController: NavController) {
         )
     }
 
-    Log.d("all Users" ,"$customers")
+    Log.d("all Users", "$customers")
     // State for search query
     var searchQuery by remember { mutableStateOf("") }
 
@@ -160,7 +160,7 @@ fun CustomersScreen(navController: NavController) {
         customers.filter { customer ->
             val matchesSearchQuery = customer.name?.contains(searchQuery, ignoreCase = true) ?: false ||
                     customer.email?.contains(searchQuery, ignoreCase = true) ?: false ||
-                    customer.contactInfo?.contains(searchQuery, ignoreCase = true) ?: false||
+                    customer.contactInfo?.contains(searchQuery, ignoreCase = true) ?: false ||
                     customer.address?.contains(searchQuery, ignoreCase = true) ?: false
 
             val matchesFilter = when (selectedFilter) {
@@ -192,7 +192,10 @@ fun CustomersScreen(navController: NavController) {
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = { /* Handle back action */ }) {
+                    IconButton(onClick = {
+                        navController.popBackStack(route.dashBoardScreen, false)
+                        selectedItem = 0
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.Black)
                     }
                 },
@@ -236,6 +239,14 @@ fun CustomersScreen(navController: NavController) {
                 )
             )
             Spacer(modifier = Modifier.height(16.dp))
+            // Total Customers Count
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Text(text = "Total Customers: ${customers.size}", fontWeight = FontWeight.Medium)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Filter Chips
             Row(
@@ -282,7 +293,7 @@ fun CustomersScreen(navController: NavController) {
             // Customer List
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
                 items(filteredCustomers) { customer ->
-                    CustomerItem(customer,navController)
+                    CustomerItem(customer, navController)
                 }
             }
 
@@ -293,14 +304,16 @@ fun CustomersScreen(navController: NavController) {
 }
 
 @Composable
-fun CustomerItem(customer: Customer,navController: NavController) {
-    val context=LocalContext.current
+fun CustomerItem(customer: Customer, navController: NavController) {
+    val context = LocalContext.current
     Row(
         modifier = Modifier
-            .fillMaxWidth().clickable{
-                Toast.makeText(context,"Clicked ${customer.name}", Toast.LENGTH_SHORT).show()
-                                  navController.navigate(route.customerDetailScreen(customer.userId))
-                                     },
+            .fillMaxWidth()
+            .clickable {
+                Toast.makeText(context, "Opening ${customer.name} Profile", Toast.LENGTH_SHORT)
+                    .show()
+                navController.navigate(route.customerDetailScreen(customer.userId))
+            },
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Circle with Initials
@@ -323,11 +336,11 @@ fun CustomerItem(customer: Customer,navController: NavController) {
         Column(modifier = Modifier.weight(1f)) {
             Text(text = customer.name ?: "", fontWeight = FontWeight.Bold, color = Color.Black)
 
-                Text(text = customer.address?:"No Address", color = Color.Gray,fontSize = 14.sp)
+            Text(text = customer.address ?: "No Address", color = Color.Gray, fontSize = 14.sp)
 
 
 
-                Text(text = customer.contactInfo?:"No Number", color = Color.Gray,fontSize = 14.sp)
+            Text(text = customer.contactInfo ?: "No Number", color = Color.Gray, fontSize = 14.sp)
 
 
         }
@@ -335,9 +348,13 @@ fun CustomerItem(customer: Customer,navController: NavController) {
         // Amount and Status
         Column(horizontalAlignment = Alignment.End) {
 
-                Text(text = "₹${customer.amount?:"0"}", fontWeight = FontWeight.Bold, color = Color.Black)
+            Text(
+                text = "₹${customer.amount ?: "0"}",
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
 
-            Text(text = customer.status ?: "", color = customer.statusColor,fontSize = 14.sp)
+            Text(text = customer.status ?: "", color = customer.statusColor, fontSize = 14.sp)
         }
     }
     Spacer(modifier = Modifier.height(10.dp))

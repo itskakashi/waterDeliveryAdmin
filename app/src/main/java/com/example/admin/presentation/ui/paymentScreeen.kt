@@ -5,6 +5,7 @@ import Payment
 import User
 import android.os.Build
 import android.util.Log
+import androidx.compose.material.icons.filled.Clear
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.clickable
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -54,12 +56,14 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.admin.R
 import com.example.admin.presentation.FireBaseViewModel
+import com.example.admin.presentation.ui.route
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flow
+import selectedItem
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -88,7 +92,10 @@ fun PaymentScreen(viewModel: FireBaseViewModel, navController: NavController) {
             TopAppBar(
                 title = { Text("Add Payment", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = {
+                        navController.popBackStack(route.dashBoardScreen,false)
+                        selectedItem=0
+                    }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                             contentDescription = "Back"
@@ -146,7 +153,8 @@ fun PaymentScreen(viewModel: FireBaseViewModel, navController: NavController) {
                     IconButton(onClick = { isDatePickerOpen = true }) {
                         Icon(
                             painter = painterResource(R.drawable.calender),
-                            contentDescription = "Select Date"
+                            contentDescription = "Select Date",
+                            Modifier.size(20.dp)
                         )
                     }
                 },
@@ -232,6 +240,8 @@ fun PaymentScreen(viewModel: FireBaseViewModel, navController: NavController) {
     }
 }
 
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomerDropdown(allUsers: List<User>, onCustomerSelected: (User) -> Unit) {
@@ -315,7 +325,21 @@ fun CustomerDropdown(allUsers: List<User>, onCustomerSelected: (User) -> Unit) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(8.dp),
-                    placeholder = { Text("Search by name or address") }
+                    placeholder = { Text("Search by name or address") },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = {
+                                searchQuery = ""
+                                expanded = false // Collapse the dropdown
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Clear,
+                                    contentDescription = "Clear Search",
+                                    tint = Color.Gray
+                                )
+                            }
+                        }
+                    }
                 )
 
                 if (filteredUsers.isEmpty()) {
@@ -339,7 +363,6 @@ fun CustomerDropdown(allUsers: List<User>, onCustomerSelected: (User) -> Unit) {
                             onClick = {
                                 selectedCustomer = customer
                                 onCustomerSelected(customer)
-
                                 expanded = false
                             }
                         )
