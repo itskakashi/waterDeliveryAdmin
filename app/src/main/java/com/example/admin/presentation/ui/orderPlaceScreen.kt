@@ -7,6 +7,9 @@ import Order
 import Payment
 import androidx.compose.material.icons.filled.Clear
 import User
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
@@ -70,6 +73,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.getSystemService
 import androidx.navigation.NavController
 import com.example.admin.R
 import com.example.admin.presentation.FireBaseViewModel
@@ -84,7 +88,12 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.Date
-
+fun isNetworkAvailable(context: Context): Boolean {
+    val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    val network = connectivityManager.activeNetwork ?: return false
+    val networkCapabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+    return networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+}
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,99 +123,112 @@ fun NewOrderScreen(navController: NavController, viewModel: FireBaseViewModel) {
     fun confirmOrder() {
 
         if (selectedCustomer != null && selectedDate != null && (selectedNormalJarQuantity > 0 || selectedColdJarQuantity > 0)) {
-            val db = Firebase.firestore
-            val userRef = db.collection("users").document(selectedCustomer!!.userId!!)
-
-            val order = Order(
-                userName = selectedCustomer!!.name,
-                userID = userRef,
-                deliveryAddress = selectedCustomer!!.address,
-                normalWaterQuantity = selectedNormalJarQuantity,
-                coldWaterQuantity = selectedColdJarQuantity,
-                expectedDeliveryDate = Timestamp(selectedDate!!),
-                isDelivered = isMarkedAsDelivered,
-                orderDate = Timestamp.now().toString(),
-                totalAmount = totalPrice.toDouble(),
-                deliveryStatus = if (isMarkedAsDelivered) "Completed" else "Pending",
-                canesReturning = returnCanCount,
-            )
-            viewModel.createOrder(selectedCustomer!!.userId!!, order, onSuccess = { orderId ->
-                Toast.makeText(context, "your order is successful $orderId", Toast.LENGTH_SHORT).show()
-                Log.d("order", "order created successful ${orderId.toString()}")
-                val db: FirebaseFirestore = Firebase.firestore
+            if (isNetworkAvailable(context)) {
+                // Proceed with the order creation as normal
+                val db = Firebase.firestore
                 val userRef = db.collection("users").document(selectedCustomer!!.userId!!)
 
-                if (isMarkedAsDelivered) {
-                    if (!isMarkedAsPaid) {
-                        selectedCustomer?.let { customer ->
-                            val newAmount = customer.amount?.plus(totalPrice.toDouble())
-                                ?: totalPrice.toDouble()
-                            val cantaken = customer.canesTaken?.plus((selectedNormalJarQuantity + selectedColdJarQuantity).minus(returnCanCount))
+                val order = Order(
+                    userName = selectedCustomer!!.name,
+                    userID = userRef,
+                    deliveryAddress = selectedCustomer!!.address,
+                    normalWaterQuantity = selectedNormalJarQuantity,
+                    coldWaterQuantity = selectedColdJarQuantity,
+                    expectedDeliveryDate = Timestamp(selectedDate!!),
+                    isDelivered = isMarkedAsDelivered,
+                    orderDate = Timestamp.now().toString(),
+                    totalAmount = totalPrice.toDouble(),
+                    deliveryStatus = if (isMarkedAsDelivered) "Completed" else "Pending",
+                    canesReturning = returnCanCount,
+                )
+                viewModel.createOrder(selectedCustomer!!.userId!!, order, onSuccess = { orderId ->
+                    Toast.makeText(context, "your order is successful $orderId", Toast.LENGTH_SHORT).show()
+                    Log.d("order", "order created successful ${orderId.toString()}")
+                    val db: FirebaseFirestore = Firebase.firestore
+                    val userRef = db.collection("users").document(selectedCustomer!!.userId!!)
 
-                            viewModel.updateUser(
-                                customer.copy(
-                                    amount = newAmount,
-                                    canesTaken = cantaken
-                                ), {
-                                    Log.d(
-                                        "UpdatedSuccessfully",
-                                        " bill amount is successfully updated $"
-                                    )
-                                }, {
-                                    Log.d(
-                                        "UpdatedUNSuccessfully",
-                                        " bill amount is UNsuccessfully updated ${it.message.toString()}"
-                                    )
-                                })
+                    if (isMarkedAsDelivered) {
+                        if (!isMarkedAsPaid) {
+                            selectedCustomer?.let { customer ->
+                                val newAmount = customer.amount?.plus(totalPrice.toDouble())
+                                    ?: totalPrice.toDouble()
+                                val cantaken = customer.canesTaken?.plus((selectedNormalJarQuantity + selectedColdJarQuantity).minus(returnCanCount))
+
+                                viewModel.updateUser(
+                                    customer.copy(
+                                        amount = newAmount,
+                                        canesTaken = cantaken
+                                    ), {
+                                        Log.d(
+                                            "UpdatedSuccessfully",
+                                            " bill amount is successfully updated $"
+                                        )
+                                    }, {
+                                        Log.d(
+                                            "UpdatedUNSuccessfully",
+                                            " bill amount is UNsuccessfully updated ${it.message.toString()}"
+                                        )
+                                    })
+                            }
+                        } else {
+                            // Create a payment receipt
+                            Log.d("zzzzzz"," zzzzzzzz")
+                            selectedCustomer?.let { customer ->
+
+                                val cantaken = customer.canesTaken?.plus((selectedNormalJarQuantity + selectedColdJarQuantity).minus(returnCanCount))
+
+                                viewModel.updateUser(
+                                    customer.copy(
+                                        canesTaken = cantaken
+                                    ), {
+                                        Log.d(
+                                            "UpdatedSuccessfully",
+                                            " bill amount is successfully updated $"
+                                        )
+                                    }, {
+                                        Log.d(
+                                            "UpdatedUNSuccessfully",
+                                            " bill amount is UNsuccessfully updated ${it.message.toString()}"
+                                        )
+                                    })
+                            }
+
+                            val payment = Payment(
+                                userId = userRef,
+                                paymentAmount = totalPrice.toDouble(),
+                                paymentDate = Timestamp.now(),
+                                paymentMethod = "Cash", // You can change the payment method
+
+
+                            )
+                            // Add payment to payments collection
+                            viewModel.recordPayment(payment, {}, {})
                         }
+                        navController.popBackStack()
+
                     } else {
-                        // Create a payment receipt
-                          Log.d("zzzzzz"," zzzzzzzz")
-                        selectedCustomer?.let { customer ->
-
-                            val cantaken = customer.canesTaken?.plus((selectedNormalJarQuantity + selectedColdJarQuantity).minus(returnCanCount))
-
-                            viewModel.updateUser(
-                                customer.copy(
-                                    canesTaken = cantaken
-                                ), {
-                                    Log.d(
-                                        "UpdatedSuccessfully",
-                                        " bill amount is successfully updated $"
-                                    )
-                                }, {
-                                    Log.d(
-                                        "UpdatedUNSuccessfully",
-                                        " bill amount is UNsuccessfully updated ${it.message.toString()}"
-                                    )
-                                })
-                        }
-
-                        val payment = Payment(
-                            userId = userRef,
-                            paymentAmount = totalPrice.toDouble(),
-                            paymentDate = Timestamp.now(),
-                            paymentMethod = "Cash", // You can change the payment method
-
-
-                        )
-                        // Add payment to payments collection
-                        viewModel.recordPayment(payment, {}, {})
+                        navController.popBackStack()
                     }
+
+
+                }) {
+                    Log.d("order", "can not create an order ${it.message}")
+                    Toast.makeText(
+                        context,
+                        "Failed to create order. Please try again later.",
+                        Toast.LENGTH_LONG
+                    ).show()
                     navController.popBackStack()
 
-                } else {
-                    navController.popBackStack()
                 }
-
-
-            }) {
-                Log.d("order", "can not create an order ${it.message}")
+            } else {
+                //save information locally and then return to previous screen
                 Toast.makeText(
                     context,
-                    "Failed to create order. Please try again later.",
+                    "No internet connection",
                     Toast.LENGTH_LONG
                 ).show()
+                navController.popBackStack()
 
             }
 
@@ -221,6 +243,8 @@ fun NewOrderScreen(navController: NavController, viewModel: FireBaseViewModel) {
             }
         }
     }
+
+
 
     Scaffold(
         topBar = {

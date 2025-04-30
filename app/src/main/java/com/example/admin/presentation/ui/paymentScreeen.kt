@@ -44,6 +44,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -56,6 +57,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.admin.R
 import com.example.admin.presentation.FireBaseViewModel
+import com.example.admin.presentation.ui.isNetworkAvailable
 import com.example.admin.presentation.ui.route
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -68,6 +70,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.Date
+import kotlinx.coroutines.launch
+
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,6 +82,8 @@ fun PaymentScreen(viewModel: FireBaseViewModel, navController: NavController) {
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     var isDatePickerOpen by remember { mutableStateOf(false) }
     var showConfirmationDialog by remember { mutableStateOf(false) }
+    var isConfirming by remember { mutableStateOf(false) } // New state for button click
+    val coroutineScope = rememberCoroutineScope()
 
     val allUsers by viewModel.allUsers.collectAsState()
     val context = LocalContext.current
@@ -93,8 +99,8 @@ fun PaymentScreen(viewModel: FireBaseViewModel, navController: NavController) {
                 title = { Text("Add Payment", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = {
-                        navController.popBackStack(route.dashBoardScreen,false)
-                        selectedItem=0
+                        navController.popBackStack(route.dashBoardScreen, false)
+                        selectedItem = 0
                     }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
@@ -197,35 +203,70 @@ fun PaymentScreen(viewModel: FireBaseViewModel, navController: NavController) {
             confirmButton = {
                 val db: FirebaseFirestore = Firebase.firestore
                 val userRef = db.collection("users").document(selectedCustomer?.userId ?: "")
-                TextButton(onClick = {
-                    // Perform the actual payment update
-                    val payment = Payment(
-                        userId = userRef,
-                        paymentAmount = amountPaying.toDouble(),
-                        paymentDate = Timestamp(Date()),
-                        paymentMethod = "Cash" // You can change this
-                    )
-                    viewModel.recordPayment(payment, { paymentId ->
-                        viewModel.updateAmount(
-                            db.collection("users").document(selectedCustomer?.userId ?: ""),
-                            amountPaying.toDouble(), false, {
-                                Toast.makeText(context, "Payment Successful", Toast.LENGTH_SHORT)
-                                    .show()
-                                navController.popBackStack()
-                            }, {
-                                Toast.makeText(context, "Payment Failed", Toast.LENGTH_SHORT).show()
-                            })
-                        showConfirmationDialog = false
-                    }, {
-                        Toast.makeText(context, "Payment Failed", Toast.LENGTH_SHORT).show()
-                    })
+                TextButton(
+                    onClick = {
+                        if (!isConfirming) {
+                            coroutineScope.launch {
+                                isConfirming = true // Mark the button as clicked
 
-                }) {
+                                if (isNetworkAvailable(context)) {
+                                    val payment = Payment(
+                                        userId = userRef,
+                                        paymentAmount = amountPaying.toDouble(),
+                                        paymentDate = Timestamp(Date()),
+                                        paymentMethod = "Cash" // You can change this
+                                    )
+                                    viewModel.recordPayment(payment, { paymentId ->
+                                        viewModel.updateAmount(
+                                            db.collection("users")
+                                                .document(selectedCustomer?.userId ?: ""),
+                                            amountPaying.toDouble(), false, {
+                                                Toast.makeText(
+                                                    context,
+                                                    "Payment Successful",
+                                                    Toast.LENGTH_SHORT
+                                                )
+                                                    .show()
+                                                navController.popBackStack()
+                                            }, {
+                                                Toast.makeText(
+                                                    context,
+                                                    "Payment Failed",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            })
+                                        showConfirmationDialog = false
+                                        isConfirming = false // Allow the button to be clicked again
+                                    }, {
+                                        Toast.makeText(
+                                            context,
+                                            "Payment Failed",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        isConfirming = false // Allow the button to be clicked again
+                                    })
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "No internet connection ",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    navController.popBackStack()
+                                    isConfirming = false // Allow the button to be clicked again
+                                }
+                            }
+                        }
+                    },
+                    enabled = !isConfirming // Disable button while confirming
+                ) {
                     Text("Confirm")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirmationDialog = false }) {
+                TextButton(onClick = {
+                    showConfirmationDialog = false
+                    isConfirming = false // Reset confirming state on dismiss
+                }) {
                     Text("Cancel")
                 }
             }

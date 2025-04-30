@@ -4,8 +4,12 @@ import Bill
 import BottomNavigationBar
 import Order
 import android.annotation.SuppressLint
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Log
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -51,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -70,6 +75,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TextButton
 import androidx.navigation.NavController
+import com.example.admin.presentation.ui.isNetworkAvailable
 import com.example.admin.presentation.ui.route
 import com.google.firebase.Firebase
 import com.google.firebase.Timestamp
@@ -79,10 +85,13 @@ import selectedItem
 import java.time.Instant
 import java.time.ZoneOffset
 
+
+
+
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OrderScreen(navController: NavController,viewModel: FireBaseViewModel) {
+fun OrderScreen(navController: NavController, viewModel: FireBaseViewModel) {
 
     var selectedDate by remember { mutableStateOf<LocalDate?>(LocalDate.now()) }
     var selectedStatus by remember { mutableStateOf("Pending") }
@@ -92,11 +101,14 @@ fun OrderScreen(navController: NavController,viewModel: FireBaseViewModel) {
     val todayOrders by viewModel.todayOrders.observeAsState(emptyList())
     val showCustomDateOrders = selectedDate != null && selectedDate != LocalDate.now()
     val ordersToDisplay = if (showCustomDateOrders) customOrders else todayOrders
+    val context = LocalContext.current
+    var showOfflineToast by remember { mutableStateOf(false) }
+
     Log.d("todayOrders", "todayOrders: $todayOrders")
     LaunchedEffect(key1 = selectedDate, block = {
         if (selectedDate == LocalDate.now()) {
             viewModel.getAllUsersTodayOrders(onSuccess = {}, onFailure = {})
-        }  else {
+        } else {
             viewModel.getAllUsersOrdersByCustomDate(selectedDate!!, {}, {})
         }
 
@@ -111,8 +123,8 @@ fun OrderScreen(navController: NavController,viewModel: FireBaseViewModel) {
                 },
                 navigationIcon = {
                     IconButton(onClick = {
-                        navController.popBackStack(route.dashBoardScreen,false)
-                        selectedItem=0
+                        navController.popBackStack(route.dashBoardScreen, false)
+                        selectedItem = 0
                     }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
@@ -122,7 +134,7 @@ fun OrderScreen(navController: NavController,viewModel: FireBaseViewModel) {
                 }
             )
         },
-        bottomBar = {BottomNavigationBar(navController = navController)}
+        bottomBar = { BottomNavigationBar(navController = navController) }
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding)) {
             SearchBar(
@@ -151,8 +163,13 @@ fun OrderScreen(navController: NavController,viewModel: FireBaseViewModel) {
                 selectedStatus = selectedStatus,
                 selectedDate = selectedDate,
                 searchQuery = searchQuery,
-                viewModel = viewModel
+                viewModel = viewModel,
+                showOfflineToast = {
+                    Toast.makeText(context,"No Internet connection", Toast.LENGTH_SHORT).show()
+
+                }
             )
+
         }
     }
     if (isDatePickerDialogOpen) {
@@ -166,7 +183,14 @@ fun OrderScreen(navController: NavController,viewModel: FireBaseViewModel) {
 @SuppressLint("NewApi")
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun OrdersList(orders: List<Order>, selectedStatus: String, selectedDate: LocalDate?, searchQuery: String, viewModel: FireBaseViewModel) {
+fun OrdersList(
+    orders: List<Order>,
+    selectedStatus: String,
+    selectedDate: LocalDate?,
+    searchQuery: String,
+    viewModel: FireBaseViewModel,
+    showOfflineToast: () -> Unit
+) {
 
     val filteredOrders = orders.filter { order ->
         val isStatusMatch = when (selectedStatus) {
@@ -176,7 +200,10 @@ fun OrdersList(orders: List<Order>, selectedStatus: String, selectedDate: LocalD
         }
 
         val isDateMatch = selectedDate?.let {
-            val orderDate = LocalDateTime.ofInstant(order.expectedDeliveryDate!!.toDate().toInstant(), ZoneId.systemDefault()).toLocalDate()
+            val orderDate = LocalDateTime.ofInstant(
+                order.expectedDeliveryDate!!.toDate().toInstant(),
+                ZoneId.systemDefault()
+            ).toLocalDate()
             orderDate == it
         } ?: true
         val isSearchMatch = searchQuery.isEmpty() ||
@@ -195,7 +222,7 @@ fun OrdersList(orders: List<Order>, selectedStatus: String, selectedDate: LocalD
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         items(filteredOrders) { order ->
-            orderItem(order = order, viewModel,selectedDate)
+            orderItem(order = order, viewModel, selectedDate,showOfflineToast = showOfflineToast)
         }
     }
 }
@@ -277,7 +304,13 @@ fun StatusFilter(
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun orderItem(order: Order, viewModel: FireBaseViewModel,selectedDate: LocalDate?) {
+fun orderItem(
+    order: Order,
+    viewModel: FireBaseViewModel,
+    selectedDate: LocalDate?,
+    showOfflineToast: () -> Unit
+) {
+    val context = LocalContext.current
     Log.d("currentorder", "current  is : $order")
     // Use a single formatter for date and time
     val dateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault())
@@ -385,14 +418,35 @@ fun orderItem(order: Order, viewModel: FireBaseViewModel,selectedDate: LocalDate
                             text = { Text("Are you sure you want to cancel this order?") },
                             confirmButton = {
                                 TextButton(onClick = {
-                                    viewModel.updateOrderStatusUsingRef(order.userID!!, order.orderId ?: "", "Cancelled", {}, {})
-                                    if (selectedDate == LocalDate.now()) {
-                                        viewModel.getAllUsersTodayOrders(onSuccess = {}, onFailure = {})
-                                    }  else if(selectedDate==LocalDate.now().minusDays(1)){
-                                        viewModel.getAllUsersOrdersByCustomDate(selectedDate!!,{},{})
-                                    }
-                                    else{
-                                        viewModel.getAllUsersOrdersByCustomDate(selectedDate!!,{},{})
+                                    if (isNetworkAvailable(context)) {
+
+                                        viewModel.updateOrderStatusUsingRef(
+                                            order.userID!!,
+                                            order.orderId ?: "",
+                                            "Cancelled",
+                                            {},
+                                            {}
+                                        )
+                                        if (selectedDate == LocalDate.now()) {
+                                            viewModel.getAllUsersTodayOrders(
+                                                onSuccess = {},
+                                                onFailure = {}
+                                            )
+                                        } else if (selectedDate == LocalDate.now().minusDays(1)) {
+                                            viewModel.getAllUsersOrdersByCustomDate(
+                                                selectedDate!!,
+                                                {},
+                                                {}
+                                            )
+                                        } else {
+                                            viewModel.getAllUsersOrdersByCustomDate(
+                                                selectedDate!!,
+                                                {},
+                                                {}
+                                            )
+                                        }
+                                    }else{
+                                        showOfflineToast()
                                     }
 
                                     showDialog = false
@@ -426,41 +480,73 @@ fun orderItem(order: Order, viewModel: FireBaseViewModel,selectedDate: LocalDate
                             text = { Text("Are you sure you want to mark this order as delivered?") },
                             confirmButton = {
                                 TextButton(onClick = {
+                                    if (isNetworkAvailable(context)) {
 
-                                    val db: FirebaseFirestore = Firebase.firestore
-                                    viewModel.updateOrderStatusUsingRef(order.userID!!, order.orderId ?: "", "Completed", {}, {})
-                                    if (selectedDate == LocalDate.now()) {
-                                        viewModel.getAllUsersTodayOrders(onSuccess = {}, onFailure = {})
-                                    }
-                                    else if(selectedDate==LocalDate.now().minusDays(1)){
-                                        viewModel.getAllUsersOrdersByCustomDate(selectedDate!!,{},{})
-                                    }
-
-                                    else{
-                                        viewModel.getAllUsersOrdersByCustomDate(selectedDate!!,{},{})
-                                    }
-
-
-
-                                    viewModel.updateAmount(order.userID!!, order.totalAmount ?: 0.0, true, {
-                                        Log.d("amountUpdated", "amount is updated successfully ")
-                                    }, {
-                                        Log.d("amountUpdated", "amount is updated Unsuccessfully ")
-                                    })
-                                    // Assuming you have an instance of FireBaseViewModel called 'viewModel'
-                                    viewModel.updateCanesTaken(
-                                        userRef = order.userID!!,
-                                        canesToAdd = (order.coldWaterQuantity!!+order.normalWaterQuantity!!),
-                                        canesToSubtract = order.canesReturning?:0,
-                                        onSuccess = {
-                                            // Handle successful update (e.g., show a success message)
-                                            Log.d("ViewModelUpdate", "canes update successful")
-                                        },
-                                        onFailure = { error ->
-                                            // Handle failure (e.g., show an error message)
-                                            Log.e("ViewModelUpdate", "Failed to update canes: ${error.message}")
+                                        val db: FirebaseFirestore = Firebase.firestore
+                                        viewModel.updateOrderStatusUsingRef(
+                                            order.userID!!,
+                                            order.orderId ?: "",
+                                            "Completed",
+                                            {},
+                                            {}
+                                        )
+                                        if (selectedDate == LocalDate.now()) {
+                                            viewModel.getAllUsersTodayOrders(
+                                                onSuccess = {},
+                                                onFailure = {}
+                                            )
+                                        } else if (selectedDate == LocalDate.now().minusDays(1)) {
+                                            viewModel.getAllUsersOrdersByCustomDate(
+                                                selectedDate!!,
+                                                {},
+                                                {}
+                                            )
+                                        } else {
+                                            viewModel.getAllUsersOrdersByCustomDate(
+                                                selectedDate!!,
+                                                {},
+                                                {}
+                                            )
                                         }
-                                    )
+
+
+
+                                        viewModel.updateAmount(
+                                            order.userID!!,
+                                            order.totalAmount ?: 0.0,
+                                            true,
+                                            {
+                                                Log.d(
+                                                    "amountUpdated",
+                                                    "amount is updated successfully "
+                                                )
+                                            },
+                                            {
+                                                Log.d(
+                                                    "amountUpdated",
+                                                    "amount is updated Unsuccessfully "
+                                                )
+                                            })
+                                        // Assuming you have an instance of FireBaseViewModel called 'viewModel'
+                                        viewModel.updateCanesTaken(
+                                            userRef = order.userID!!,
+                                            canesToAdd = (order.coldWaterQuantity!! + order.normalWaterQuantity!!),
+                                            canesToSubtract = order.canesReturning ?: 0,
+                                            onSuccess = {
+                                                // Handle successful update (e.g., show a success message)
+                                                Log.d("ViewModelUpdate", "canes update successful")
+                                            },
+                                            onFailure = { error ->
+                                                // Handle failure (e.g., show an error message)
+                                                Log.e(
+                                                    "ViewModelUpdate",
+                                                    "Failed to update canes: ${error.message}"
+                                                )
+                                            }
+                                        )
+                                    }else{
+                                        showOfflineToast()
+                                    }
 
 
 

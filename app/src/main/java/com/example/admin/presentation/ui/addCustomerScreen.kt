@@ -1,7 +1,14 @@
 package com.example.admin.presentation.ui
 
+import Order
+import Payment
 import User
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.Build
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,9 +19,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Edit
@@ -43,6 +53,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -50,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -59,7 +71,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.admin.presentation.FireBaseViewModel
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
+import java.util.Date
 
 // Color Constants
 private val BluePrimary = Color(0xFF1E90FF)
@@ -90,6 +107,7 @@ fun AddCustomerScreen(navController: NavController, viewModel: FireBaseViewModel
     var coldWaterPriceError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     //clear the errors state after the user change the data
     LaunchedEffect(customerName.text) {
@@ -127,34 +145,44 @@ fun AddCustomerScreen(navController: NavController, viewModel: FireBaseViewModel
                 val newUser = User(
                     name = customerName.text,
                     contactInfo = phoneNumber.text,
-                    email = if(emailAddress.text.isNullOrEmpty())null else emailAddress.text,
+                    email = if (emailAddress.text.isNullOrEmpty()) null else emailAddress.text,
                     address = address.text,
                     depositMoney = depositedMoney.text.toDouble(),
                     regularWaterPrice = normalWaterPrice.text.toDouble(),
-                    coldWaterPrice=coldWaterPrice.text.toDouble(),
+                    coldWaterPrice = coldWaterPrice.text.toDouble(),
                 )
-                viewModel.addCustomerWithoutAuth(
-                    user = newUser,
+                if (isNetworkAvailable(context)) {
+                    viewModel.addCustomerWithoutAuth(
+                        user = newUser,
 
-                    onSuccess = { userId ->
-                        isLoading = false
-                        // Handle success, e.g., show a Toast and navigate back
-                        Log.d("customer successfull", "success to add customer: ${userId}")
-                        navController.popBackStack()
-                    },
-                    onFailure = { exception ->
-                        isLoading = false
-                        // Handle failure, e.g., show an error Toast
-                        Log.d("customer failed", "Failed to add customer: ${exception.message}")
+                        onSuccess = { userId ->
+                            isLoading = false
+                            // Handle success, e.g., show a Toast and navigate back
+                            Log.d("customer successfull", "success to add customer: ${userId}")
+                            navController.popBackStack()
+                        },
+                        onFailure = { exception ->
+                            isLoading = false
+                            // Handle failure, e.g., show an error Toast
+                            Log.d("customer failed", "Failed to add customer: ${exception.message}")
 
-                        scope.launch {
-                            snackbarHostState.showSnackbar(
-                                "Failed to add customer: ${exception.message}"
-                            )
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    "Failed to add customer: ${exception.message}"
+                                )
+                            }
                         }
-                    }
-                )
-                showConfirmationDialog = false // Dismiss the dialog after confirmation
+                    )
+                    showConfirmationDialog = false
+                }else{
+                    Toast.makeText(
+                        context,
+                        "No internet connection, please check your connection ",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    navController.popBackStack()
+                    showConfirmationDialog = false
+                }
             },
             onDismiss = { showConfirmationDialog = false }
         )
@@ -190,7 +218,9 @@ fun AddCustomerScreen(navController: NavController, viewModel: FireBaseViewModel
                     .fillMaxSize()
                     .padding(innerPadding)
                     .padding(16.dp)
-                    .background(MaterialTheme.colorScheme.background),
+                    .background(MaterialTheme.colorScheme.background).verticalScroll(
+                        rememberScrollState()
+                    ),
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -300,7 +330,7 @@ fun AddCustomerScreen(navController: NavController, viewModel: FireBaseViewModel
                             phoneNumberError = null
                             addressError = null
                             depositedMoneyError = null
-                            normalWaterPriceError= null
+                            normalWaterPriceError = null
                             coldWaterPriceError = null
                             // Validate the required fields
                             if (customerName.text.isBlank()) {
@@ -312,25 +342,22 @@ fun AddCustomerScreen(navController: NavController, viewModel: FireBaseViewModel
                             if (address.text.isBlank()) {
                                 addressError = "Address is required"
                             }
-                            if(depositedMoney.text.isBlank()) {
+                            if (depositedMoney.text.isBlank()) {
                                 depositedMoneyError = "Deposited Money is required"
-                            }
-                            else if(depositedMoney.text.isNotBlank() && depositedMoney.text.toDoubleOrNull() == null) {
+                            } else if (depositedMoney.text.isNotBlank() && depositedMoney.text.toDoubleOrNull() == null) {
                                 depositedMoneyError = "Invalid amount"
                             }
-                            if(normalWaterPrice.text.isBlank()) {
+                            if (normalWaterPrice.text.isBlank()) {
                                 normalWaterPriceError = "Normal water price is required"
-                            }
-                            else if(normalWaterPrice.text.isNotBlank() && normalWaterPrice.text.toDoubleOrNull() == null) {
+                            } else if (normalWaterPrice.text.isNotBlank() && normalWaterPrice.text.toDoubleOrNull() == null) {
                                 normalWaterPriceError = "Invalid amount"
                             }
-                            if(coldWaterPrice.text.isBlank()) {
+                            if (coldWaterPrice.text.isBlank()) {
                                 coldWaterPriceError = "Cold water price is required"
-                            }
-                            else if(coldWaterPrice.text.isNotBlank() && coldWaterPrice.text.toDoubleOrNull() == null) {
+                            } else if (coldWaterPrice.text.isNotBlank() && coldWaterPrice.text.toDoubleOrNull() == null) {
                                 coldWaterPriceError = "Invalid amount"
                             }
-                            if (customerNameError != null || phoneNumberError != null || addressError != null || depositedMoneyError != null|| normalWaterPriceError != null||coldWaterPriceError!=null) {
+                            if (customerNameError != null || phoneNumberError != null || addressError != null || depositedMoneyError != null || normalWaterPriceError != null || coldWaterPriceError != null) {
                                 return@Button
                             }
 
@@ -436,8 +463,8 @@ fun ConfirmationDialog(
     address: String,
     notes: String,
     depositedMoney: String,
-    normalWaterPrice:String,
-    coldWaterPrice:String,
+    normalWaterPrice: String,
+    coldWaterPrice: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -474,3 +501,4 @@ fun ConfirmationDialog(
         }
     )
 }
+

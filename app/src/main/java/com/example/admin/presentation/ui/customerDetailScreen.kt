@@ -5,8 +5,12 @@ import Customer
 import Order
 import Payment
 import User
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Log
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -65,12 +69,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.admin.presentation.FireBaseViewModel
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -112,6 +119,7 @@ fun CustomerDetailScreen(
             viewModel.getAllPaymentsForUser(userId, {}, {})
         }
     }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -123,8 +131,10 @@ fun CustomerDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showEditDialog = true }) {
-                        Text(text = "Edit", color = Color.Blue)
+                    if (isNetworkAvailable(context)) {
+                        IconButton(onClick = { showEditDialog = true }) {
+                            Text(text = "Edit", color = Color.Blue)
+                        }
                     }
                     IconButton(onClick = { /* Handle share action */ }) {
                         Icon(Icons.Filled.Share, "Share")
@@ -168,10 +178,14 @@ fun CustomerDetailScreen(
             onUserChange = { editedUser = it },
             onDismiss = { showEditDialog = false },
             onSave = {
-                Log.d("updateduser00,", "${editedUser}")
-                viewModel.updateUser(editedUser, {}, {})
-                showEditDialog = false
-                viewModel.updateCurrentUser(userId ?: "")
+                if (isNetworkAvailable(context)){
+                    Log.d("updateduser00,", "${editedUser}")
+                    viewModel.updateUser(editedUser, {}, {})
+                    showEditDialog = false
+                    viewModel.updateCurrentUser(userId ?: "")
+                } else{
+                    Toast.makeText(context, "No internet connection", Toast.LENGTH_LONG).show()
+                }
             },
         )
     }
@@ -706,4 +720,10 @@ fun EditCustomerDialog(
             }
         }
     )
+}
+fun isNetworkAvailable(context: Context): Boolean {
+    val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    val network = connectivityManager.activeNetwork ?: return false
+    val networkCapabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+    return networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
 }

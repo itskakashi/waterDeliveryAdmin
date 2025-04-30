@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "432898418920",
-    "project_id": "authenticationn-cb797",
-    "storage_bucket": "authenticationn-cb797.firebasestorage.app"
+    "project_number": "94641222261",
+    "project_id": "first-customer-d462a",
+    "storage_bucket": "first-customer-d462a.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:432898418920:android:44de6ccb82749d861f815d",
+        "mobilesdk_app_id": "1:94641222261:android:c7bb2a13346c288adfbe3c",
         "android_client_info": {
           "package_name": "com.example.admin"
         }
@@ -15,26 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAnyLvmM62wZSSIUkHj_LcIEhYB6g0B82s"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:432898418920:android:0a8f747897c8991e1f815d",
-        "android_client_info": {
-          "package_name": "com.example.authenticationn"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyAnyLvmM62wZSSIUkHj_LcIEhYB6g0B82s"
+          "current_key": "AIzaSyDY1NayehNyO4gkot4MXKlAY6fmG1fe0VI"
         }
       ],
       "services": {
